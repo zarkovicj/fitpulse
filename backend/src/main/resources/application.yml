@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/fitpulse}
+    username: ${SPRING_DATASOURCE_USERNAME:fitpulse}
+    password: ${SPRING_DATASOURCE_PASSWORD:fitpulse}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-secret-change-me-dev-only-secret-change-me}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
