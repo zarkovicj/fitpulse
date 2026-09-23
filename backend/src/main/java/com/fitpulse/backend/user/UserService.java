@@ -15,6 +15,7 @@ public class UserService {
         this.korisnikRepository = korisnikRepository;
     }
 
+    @Transactional(readOnly = true)
     public UserResponse getMe(Long userId) {
         return UserResponse.from(findOrThrow(userId));
     }
@@ -26,9 +27,7 @@ public class UserService {
         korisnik.setIme(request.ime());
         korisnik.setPrezime(request.prezime());
         korisnik.setDatumRodjenja(request.datumRodjenja());
-        korisnik.setMasa(request.masa());
         korisnik.setVisina(request.visina());
-        korisnik.setCiljnaMasa(request.ciljnaMasa());
 
         return UserResponse.from(korisnik);
     }

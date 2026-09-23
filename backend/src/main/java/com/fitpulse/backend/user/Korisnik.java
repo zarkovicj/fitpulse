@@ -1,6 +1,7 @@
 package com.fitpulse.backend.user;
 
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -13,7 +14,7 @@ import java.time.LocalDate;
 @Table(name = "korisnik")
 @Getter
 @Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Korisnik {
 
     @Id
@@ -39,13 +40,31 @@ public class Korisnik {
 
     private BigDecimal visina;
 
-    @Column(name = "ciljna_masa")
-    private BigDecimal ciljnaMasa;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Role role = Role.USER;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
+
+    public static Korisnik register(String ime, String prezime, String mail, String hashPassword, LocalDate datumRodjenja) {
+        Korisnik korisnik = new Korisnik();
+        korisnik.ime = ime;
+        korisnik.prezime = prezime;
+        korisnik.mail = mail;
+        korisnik.hashPassword = hashPassword;
+        korisnik.datumRodjenja = datumRodjenja;
+        korisnik.role = Role.USER;
+        return korisnik;
+    }
+
+    public static Korisnik createAdmin(String ime, String prezime, String mail, String hashPassword) {
+        Korisnik korisnik = new Korisnik();
+        korisnik.ime = ime;
+        korisnik.prezime = prezime;
+        korisnik.mail = mail;
+        korisnik.hashPassword = hashPassword;
+        korisnik.role = Role.ADMIN;
+        return korisnik;
+    }
 }

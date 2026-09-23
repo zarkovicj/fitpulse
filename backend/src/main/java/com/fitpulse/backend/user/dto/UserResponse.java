@@ -15,7 +15,6 @@ public record UserResponse(
         LocalDate datumRodjenja,
         BigDecimal masa,
         BigDecimal visina,
-        BigDecimal ciljnaMasa,
         Role role,
         Instant createdAt
 ) {
@@ -28,7 +27,6 @@ public record UserResponse(
                 korisnik.getDatumRodjenja(),
                 korisnik.getMasa(),
                 korisnik.getVisina(),
-                korisnik.getCiljnaMasa(),
                 korisnik.getRole(),
                 korisnik.getCreatedAt()
         );

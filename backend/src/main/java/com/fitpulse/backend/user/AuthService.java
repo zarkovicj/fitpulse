@@ -35,13 +35,9 @@ public class AuthService {
             throw ApiException.conflict("Nalog sa ovim mail-om već postoji");
         }
 
-        Korisnik korisnik = new Korisnik();
-        korisnik.setIme(request.ime());
-        korisnik.setPrezime(request.prezime());
-        korisnik.setMail(request.mail());
-        korisnik.setHashPassword(passwordEncoder.encode(request.password()));
-        korisnik.setDatumRodjenja(request.datumRodjenja());
-        korisnik.setRole(Role.USER);
+        Korisnik korisnik = Korisnik.register(
+                request.ime(), request.prezime(), request.mail(),
+                passwordEncoder.encode(request.password()), request.datumRodjenja());
 
         korisnik = korisnikRepository.save(korisnik);
 

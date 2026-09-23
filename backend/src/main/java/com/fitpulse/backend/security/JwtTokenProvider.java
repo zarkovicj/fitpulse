@@ -17,12 +17,12 @@ public class JwtTokenProvider {
 
     public JwtTokenProvider(JwtProperties jwtProperties) {
         this.jwtProperties = jwtProperties;
-        this.key = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
+        this.key = Keys.hmacShaKeyFor(jwtProperties.secret().getBytes(StandardCharsets.UTF_8));
     }
 
     public String generateToken(Long userId, String mail, String role) {
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + jwtProperties.getExpirationMs());
+        Date expiry = new Date(now.getTime() + jwtProperties.expirationMs());
 
         return Jwts.builder()
                 .subject(mail)
