@@ -10,14 +10,14 @@ import java.util.Optional;
 
 public interface TemplateRepository extends JpaRepository<Template, Long> {
 
-    @EntityGraph(attributePaths = {"exercises", "exercises.vezba"})
+    @EntityGraph(attributePaths = {"exercises", "exercises.exercise"})
     @Query("""
             SELECT DISTINCT t FROM Template t LEFT JOIN t.createdBy c
-            WHERE :viewerId IS NULL OR c IS NULL OR c.id = :viewerId
-            ORDER BY t.naziv
+            WHERE c IS NULL OR c.id = :viewerId
+            ORDER BY t.name
             """)
     List<Template> findVisible(@Param("viewerId") Long viewerId);
 
-    @EntityGraph(attributePaths = {"exercises", "exercises.vezba"})
+    @EntityGraph(attributePaths = {"exercises", "exercises.exercise"})
     Optional<Template> findWithExercisesById(Long id);
 }

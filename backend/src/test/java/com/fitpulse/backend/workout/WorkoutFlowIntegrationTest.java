@@ -2,11 +2,11 @@ package com.fitpulse.backend.workout;
 
 import com.fitpulse.backend.TestcontainersConfig;
 import com.fitpulse.backend.common.PageResponse;
-import com.fitpulse.backend.exercise.dto.VezbaResponse;
+import com.fitpulse.backend.exercise.dto.ExerciseResponse;
 import com.fitpulse.backend.template.dto.TemplateRequest;
 import com.fitpulse.backend.template.dto.TemplateResponse;
-import com.fitpulse.backend.template.dto.TemplateVezbaRequest;
-import com.fitpulse.backend.template.dto.TemplateVezbaResponse;
+import com.fitpulse.backend.template.dto.TemplateExerciseRequest;
+import com.fitpulse.backend.template.dto.TemplateExerciseResponse;
 import com.fitpulse.backend.user.AuthService;
 import com.fitpulse.backend.user.dto.RegisterRequest;
 import com.fitpulse.backend.workout.dto.*;
@@ -35,37 +35,37 @@ class WorkoutFlowIntegrationTest {
     @Autowired
     private AuthService authService;
 
-    private String registerAndLogin(String mail) {
-        return authService.register(new RegisterRequest("Test", "Korisnik", mail, "lozinka123", null)).token();
+    private String registerAndLogin(String email) {
+        return authService.register(new RegisterRequest("Test", "User", email, "lozinka123", null)).token();
     }
 
-    private Long systemExerciseId(String naziv, String token) {
-        return restTestClient.get().uri("/api/exercises?search=" + naziv)
+    private Long systemExerciseId(String name, String token) {
+        return restTestClient.get().uri("/api/exercises?search=" + name)
                 .header("Authorization", "Bearer " + token)
                 .exchange()
-                .expectBody(new ParameterizedTypeReference<List<VezbaResponse>>() {})
+                .expectBody(new ParameterizedTypeReference<List<ExerciseResponse>>() {})
                 .returnResult()
                 .getResponseBody()
-                .stream().filter(v -> v.naziv().equals(naziv)).findFirst().orElseThrow().id();
+                .stream().filter(v -> v.name().equals(name)).findFirst().orElseThrow().id();
     }
 
-    private TreningResponse startWorkout(String token, StartTreningRequest request) {
+    private WorkoutResponse startWorkout(String token, StartWorkoutRequest request) {
         return restTestClient.post().uri("/api/workouts")
                 .header("Authorization", "Bearer " + token)
                 .body(request)
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.CREATED)
-                .expectBody(TreningResponse.class)
+                .expectBody(WorkoutResponse.class)
                 .returnResult()
                 .getResponseBody();
     }
 
-    private TreningResponse getWorkout(String token, Long id) {
+    private WorkoutResponse getWorkout(String token, Long id) {
         return restTestClient.get().uri("/api/workouts/" + id)
                 .header("Authorization", "Bearer " + token)
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(TreningResponse.class)
+                .expectBody(WorkoutResponse.class)
                 .returnResult()
                 .getResponseBody();
     }
@@ -73,7 +73,7 @@ class WorkoutFlowIntegrationTest {
     private void completeSet(String token, Long workoutId, Long exerciseId, Long setId, int reps, String kg) {
         restTestClient.put().uri("/api/workouts/{w}/exercises/{e}/sets/{s}", workoutId, exerciseId, setId)
                 .header("Authorization", "Bearer " + token)
-                .body(new TreningSerijaRequest(reps, new BigDecimal(kg), true, null))
+                .body(new WorkoutSetRequest(reps, new BigDecimal(kg), true, null))
                 .exchange()
                 .expectStatus().isOk();
     }
@@ -83,28 +83,27 @@ class WorkoutFlowIntegrationTest {
         String token = registerAndLogin("workout-flow@example.com");
         String otherToken = registerAndLogin("workout-other@example.com");
         Long bench = systemExerciseId("Bench Press", token);
-        Long squat = systemExerciseId("Čučanj", token);
+        Long squat = systemExerciseId("Squat", token);
 
         TemplateResponse template = restTestClient.post().uri("/api/templates")
                 .header("Authorization", "Bearer " + token)
-                .body(new TemplateRequest("Moj push", null, false, List.of(
-                        new TemplateVezbaRequest(bench, 3, 8, new BigDecimal("50")),
-                        new TemplateVezbaRequest(squat, 2, 5, new BigDecimal("80")))))
+                .body(new TemplateRequest("Moj push", null, List.of(
+                        new TemplateExerciseRequest(bench, 3, 8, new BigDecimal("50")),
+                        new TemplateExerciseRequest(squat, 2, 5, new BigDecimal("80")))))
                 .exchange()
                 .expectBody(TemplateResponse.class)
                 .returnResult()
                 .getResponseBody();
 
-        // start iz template-a: vrednosti iz template-a jer istorija ne postoji
-        TreningResponse workout = startWorkout(token, new StartTreningRequest(template.id(), null));
-        TreningVezbaResponse benchExercise = workout.exercises().get(0);
-        TreningVezbaResponse squatExercise = workout.exercises().get(1);
+        WorkoutResponse workout = startWorkout(token, new StartWorkoutRequest(template.id(), null));
+        WorkoutExerciseResponse benchExercise = workout.exercises().get(0);
+        WorkoutExerciseResponse squatExercise = workout.exercises().get(1);
         assertThat(benchExercise.sets()).hasSize(3)
-                .allSatisfy(set -> assertThat(set.kilaza()).isEqualByComparingTo("50"));
+                .allSatisfy(set -> assertThat(set.weight()).isEqualByComparingTo("50"));
 
         restTestClient.post().uri("/api/workouts")
                 .header("Authorization", "Bearer " + token)
-                .body(new StartTreningRequest(template.id(), null))
+                .body(new StartWorkoutRequest(template.id(), null))
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.CONFLICT);
 
@@ -118,19 +117,18 @@ class WorkoutFlowIntegrationTest {
                 .exchange()
                 .expectStatus().isNotFound();
 
-        // tokom treninga: dve završene serije, jedna dodata, jedna obrisana
         completeSet(token, workout.id(), benchExercise.id(), benchExercise.sets().get(0).id(), 10, "55");
         completeSet(token, workout.id(), benchExercise.id(), benchExercise.sets().get(1).id(), 8, "60");
 
-        TreningSerijaResponse addedSet = restTestClient.post()
+        WorkoutSetResponse addedSet = restTestClient.post()
                 .uri("/api/workouts/{w}/exercises/{e}/sets", workout.id(), benchExercise.id())
                 .header("Authorization", "Bearer " + token)
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.CREATED)
-                .expectBody(TreningSerijaResponse.class)
+                .expectBody(WorkoutSetResponse.class)
                 .returnResult()
                 .getResponseBody();
-        assertThat(addedSet.redniBroj()).isEqualTo(4);
+        assertThat(addedSet.position()).isEqualTo(4);
 
         restTestClient.delete()
                 .uri("/api/workouts/{w}/exercises/{e}/sets/{s}", workout.id(), squatExercise.id(), squatExercise.sets().get(1).id())
@@ -138,18 +136,17 @@ class WorkoutFlowIntegrationTest {
                 .exchange()
                 .expectStatus().isNoContent();
 
-        assertThat(getWorkout(token, workout.id()).exercises().get(1).brojSerija()).isEqualTo(1);
+        assertThat(getWorkout(token, workout.id()).exercises().get(1).setCount()).isEqualTo(1);
 
-        // kraj sa ažuriranjem template-a
-        TreningResponse finished = restTestClient.put().uri("/api/workouts/" + workout.id() + "/finish")
+        WorkoutResponse finished = restTestClient.put().uri("/api/workouts/" + workout.id() + "/finish")
                 .header("Authorization", "Bearer " + token)
-                .body(new FinishTreningRequest(true))
+                .body(new FinishWorkoutRequest(true))
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(TreningResponse.class)
+                .expectBody(WorkoutResponse.class)
                 .returnResult()
                 .getResponseBody();
-        assertThat(finished.status()).isEqualTo(StatusTreninga.COMPLETED);
+        assertThat(finished.status()).isEqualTo(WorkoutStatus.COMPLETED);
 
         TemplateResponse updatedTemplate = restTestClient.get().uri("/api/templates/" + template.id())
                 .header("Authorization", "Bearer " + token)
@@ -157,22 +154,20 @@ class WorkoutFlowIntegrationTest {
                 .expectBody(TemplateResponse.class)
                 .returnResult()
                 .getResponseBody();
-        TemplateVezbaResponse benchInTemplate = updatedTemplate.exercises().get(0);
-        TemplateVezbaResponse squatInTemplate = updatedTemplate.exercises().get(1);
-        assertThat(benchInTemplate.brojSerija()).isEqualTo(4);
-        assertThat(benchInTemplate.brojPonavljanja()).isEqualTo(8);
-        assertThat(benchInTemplate.kilaza()).isEqualByComparingTo("60");
-        // čučanj nije imao nijednu završenu seriju, pa ostaje kako je bio
-        assertThat(squatInTemplate.brojSerija()).isEqualTo(2);
-        assertThat(squatInTemplate.kilaza()).isEqualByComparingTo("80");
+        TemplateExerciseResponse benchInTemplate = updatedTemplate.exercises().get(0);
+        TemplateExerciseResponse squatInTemplate = updatedTemplate.exercises().get(1);
+        assertThat(benchInTemplate.setCount()).isEqualTo(4);
+        assertThat(benchInTemplate.reps()).isEqualTo(8);
+        assertThat(benchInTemplate.weight()).isEqualByComparingTo("60");
+        assertThat(squatInTemplate.setCount()).isEqualTo(2);
+        assertThat(squatInTemplate.weight()).isEqualByComparingTo("80");
 
         completeSetExpectingConflict(token, workout.id(), benchExercise.id(), benchExercise.sets().get(2).id());
 
-        // novi trening iz istog template-a uzima vrednosti iz prethodnog
-        TreningResponse second = startWorkout(token, new StartTreningRequest(template.id(), null));
-        TreningSerijaResponse firstBenchSet = second.exercises().get(0).sets().get(0);
-        assertThat(firstBenchSet.brojPonavljanja()).isEqualTo(10);
-        assertThat(firstBenchSet.kilaza()).isEqualByComparingTo("55");
+        WorkoutResponse second = startWorkout(token, new StartWorkoutRequest(template.id(), null));
+        WorkoutSetResponse firstBenchSet = second.exercises().get(0).sets().get(0);
+        assertThat(firstBenchSet.reps()).isEqualTo(10);
+        assertThat(firstBenchSet.weight()).isEqualByComparingTo("55");
 
         restTestClient.put().uri("/api/workouts/" + second.id() + "/cancel")
                 .header("Authorization", "Bearer " + token)
@@ -184,31 +179,65 @@ class WorkoutFlowIntegrationTest {
                 .exchange()
                 .expectStatus().isNoContent();
 
-        // ad-hoc trening: čučanj bez zadatih vrednosti uzima vrednosti iz istorije
-        TreningResponse adHoc = startWorkout(token, new StartTreningRequest(null,
-                List.of(new TreningVezbaRequest(squat, null, null, null))));
+        WorkoutResponse adHoc = startWorkout(token, new StartWorkoutRequest(null,
+                List.of(new WorkoutExerciseRequest(squat, null, null, null))));
         assertThat(adHoc.templateId()).isNull();
         assertThat(adHoc.exercises().getFirst().sets()).hasSize(3)
-                .allSatisfy(set -> assertThat(set.brojPonavljanja()).isEqualTo(5));
+                .allSatisfy(set -> assertThat(set.reps()).isEqualTo(5));
 
-        PageResponse<TreningSummaryResponse> history = restTestClient.get().uri("/api/workouts?size=10")
+        PageResponse<WorkoutSummaryResponse> history = restTestClient.get().uri("/api/workouts?size=10")
                 .header("Authorization", "Bearer " + token)
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(new ParameterizedTypeReference<PageResponse<TreningSummaryResponse>>() {})
+                .expectBody(new ParameterizedTypeReference<PageResponse<WorkoutSummaryResponse>>() {})
                 .returnResult()
                 .getResponseBody();
         assertThat(history.totalElements()).isEqualTo(3);
         assertThat(history.content().getFirst().id()).isEqualTo(adHoc.id());
-        TreningSummaryResponse completed = history.content().stream()
+        WorkoutSummaryResponse completed = history.content().stream()
                 .filter(w -> w.id().equals(workout.id())).findFirst().orElseThrow();
-        assertThat(completed.ukupnaKilaza()).isEqualByComparingTo("1030"); // 10×55 + 8×60
+        assertThat(completed.totalVolume()).isEqualByComparingTo("1030"); // 10×55 + 8×60
+    }
+
+    @Test
+    void limits_shouldRejectHugeValues_andExtremeSetShouldNotBreakFinish() {
+        String token = registerAndLogin("workout-limits@example.com");
+        Long bench = systemExerciseId("Bench Press", token);
+
+        restTestClient.post().uri("/api/workouts")
+                .header("Authorization", "Bearer " + token)
+                .body(new StartWorkoutRequest(null, List.of(new WorkoutExerciseRequest(bench, 1_000_000, 10, null))))
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        WorkoutResponse workout = startWorkout(token, new StartWorkoutRequest(null,
+                List.of(new WorkoutExerciseRequest(bench, 20, 10, new BigDecimal("50")))));
+        WorkoutExerciseResponse exercise = workout.exercises().getFirst();
+
+        restTestClient.post().uri("/api/workouts/{w}/exercises/{e}/sets", workout.id(), exercise.id())
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        restTestClient.put().uri("/api/workouts/{w}/exercises/{e}/sets/{s}", workout.id(), exercise.id(), exercise.sets().get(0).id())
+                .header("Authorization", "Bearer " + token)
+                .body(new WorkoutSetRequest(10, new BigDecimal("10000"), true, null))
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        completeSet(token, workout.id(), exercise.id(), exercise.sets().get(0).id(), 1000, "300");
+
+        restTestClient.put().uri("/api/workouts/" + workout.id() + "/finish")
+                .header("Authorization", "Bearer " + token)
+                .body(new FinishWorkoutRequest(false))
+                .exchange()
+                .expectStatus().isOk();
     }
 
     private void completeSetExpectingConflict(String token, Long workoutId, Long exerciseId, Long setId) {
         restTestClient.put().uri("/api/workouts/{w}/exercises/{e}/sets/{s}", workoutId, exerciseId, setId)
                 .header("Authorization", "Bearer " + token)
-                .body(new TreningSerijaRequest(8, new BigDecimal("50"), true, null))
+                .body(new WorkoutSetRequest(8, new BigDecimal("50"), true, null))
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.CONFLICT);
     }

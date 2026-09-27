@@ -1,6 +1,7 @@
 package com.fitpulse.backend.user;
 
 import com.fitpulse.backend.TestcontainersConfig;
+import com.fitpulse.backend.account.dto.AccountRequests;
 import com.fitpulse.backend.user.dto.AuthResponse;
 import com.fitpulse.backend.user.dto.LoginRequest;
 import com.fitpulse.backend.user.dto.RegisterRequest;
@@ -10,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
@@ -74,7 +76,70 @@ class AuthFlowIntegrationTest {
                 .getResponseBody();
 
         assertThat(me).isNotNull();
-        assertThat(me.mail()).isEqualTo("marko@example.com");
+        assertThat(me.email()).isEqualTo("marko@example.com");
+    }
+
+    @Test
+    void tokenOfDeletedAccount_shouldNotWorkForNewAccountWithSameMail() {
+        String email = "isti-mail@example.com";
+        String oldToken = register(email, "lozinka123").token();
+
+        restTestClient.method(HttpMethod.DELETE).uri("/api/user/me")
+                .header("Authorization", "Bearer " + oldToken)
+                .body(new AccountRequests.DeleteAccount("lozinka123"))
+                .exchange()
+                .expectStatus().isNoContent();
+
+        String newToken = register(email, "druga-lozinka").token();
+
+        restTestClient.get().uri("/api/user/me")
+                .header("Authorization", "Bearer " + oldToken)
+                .exchange()
+                .expectStatus().isUnauthorized();
+        restTestClient.get().uri("/api/user/me")
+                .header("Authorization", "Bearer " + newToken)
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
+    void mail_shouldBeCaseInsensitiveAndTrimmed() {
+        AuthResponse registered = register("  Ana.Anic@Example.com ", "lozinka123");
+        assertThat(registered.email()).isEqualTo("ana.anic@example.com");
+
+        restTestClient.post().uri("/api/auth/register")
+                .body(new RegisterRequest("Ana", "Druga", "ana.anic@example.com", "lozinka123", null))
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.CONFLICT);
+
+        restTestClient.post().uri("/api/auth/login")
+                .body(new LoginRequest("ANA.ANIC@example.COM", "lozinka123"))
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
+    void register_withTooLongValues_shouldReturn400() {
+        restTestClient.post().uri("/api/auth/register")
+                .body(new RegisterRequest("Pera", "Perić", "duga-lozinka@example.com", "a".repeat(73), null))
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.message").isEqualTo("Lozinka mora imati od 6 do 72 karaktera");
+
+        restTestClient.post().uri("/api/auth/register")
+                .body(new RegisterRequest("P".repeat(101), "Perić", "dugo-ime@example.com", "lozinka123", null))
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    private AuthResponse register(String email, String password) {
+        return restTestClient.post().uri("/api/auth/register")
+                .body(new RegisterRequest("Test", "User", email, password, null))
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.CREATED)
+                .expectBody(AuthResponse.class)
+                .returnResult()
+                .getResponseBody();
     }
 
     @Test

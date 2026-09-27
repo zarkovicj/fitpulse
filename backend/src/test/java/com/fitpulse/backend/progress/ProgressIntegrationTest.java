@@ -1,7 +1,7 @@
 package com.fitpulse.backend.progress;
 
 import com.fitpulse.backend.TestcontainersConfig;
-import com.fitpulse.backend.exercise.dto.VezbaResponse;
+import com.fitpulse.backend.exercise.dto.ExerciseResponse;
 import com.fitpulse.backend.progress.dto.*;
 import com.fitpulse.backend.user.AuthService;
 import com.fitpulse.backend.user.dto.RegisterRequest;
@@ -33,37 +33,37 @@ class ProgressIntegrationTest {
     @Autowired
     private AuthService authService;
 
-    private String registerAndLogin(String mail) {
-        return authService.register(new RegisterRequest("Test", "Korisnik", mail, "lozinka123", null)).token();
+    private String registerAndLogin(String email) {
+        return authService.register(new RegisterRequest("Test", "User", email, "lozinka123", null)).token();
     }
 
-    private Long systemExerciseId(String naziv, String token) {
-        return restTestClient.get().uri("/api/exercises?search=" + naziv)
+    private Long systemExerciseId(String name, String token) {
+        return restTestClient.get().uri("/api/exercises?search=" + name)
                 .header("Authorization", "Bearer " + token)
                 .exchange()
-                .expectBody(new ParameterizedTypeReference<List<VezbaResponse>>() {})
+                .expectBody(new ParameterizedTypeReference<List<ExerciseResponse>>() {})
                 .returnResult()
                 .getResponseBody()
-                .stream().filter(v -> v.naziv().equals(naziv)).findFirst().orElseThrow().id();
+                .stream().filter(v -> v.name().equals(name)).findFirst().orElseThrow().id();
     }
 
-    private TreningResponse start(String token, List<TreningVezbaRequest> exercises) {
+    private WorkoutResponse start(String token, List<WorkoutExerciseRequest> exercises) {
         return restTestClient.post().uri("/api/workouts")
                 .header("Authorization", "Bearer " + token)
-                .body(new StartTreningRequest(null, exercises))
+                .body(new StartWorkoutRequest(null, exercises))
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.CREATED)
-                .expectBody(TreningResponse.class)
+                .expectBody(WorkoutResponse.class)
                 .returnResult()
                 .getResponseBody();
     }
 
-    private void completeSet(String token, TreningResponse workout, int exerciseIndex, int setIndex, int reps, String kg) {
-        TreningVezbaResponse exercise = workout.exercises().get(exerciseIndex);
+    private void completeSet(String token, WorkoutResponse workout, int exerciseIndex, int setIndex, int reps, String kg) {
+        WorkoutExerciseResponse exercise = workout.exercises().get(exerciseIndex);
         restTestClient.put().uri("/api/workouts/{w}/exercises/{e}/sets/{s}",
                         workout.id(), exercise.id(), exercise.sets().get(setIndex).id())
                 .header("Authorization", "Bearer " + token)
-                .body(new TreningSerijaRequest(reps, kg != null ? new BigDecimal(kg) : null, true, null))
+                .body(new WorkoutSetRequest(reps, kg != null ? new BigDecimal(kg) : null, true, null))
                 .exchange()
                 .expectStatus().isOk();
     }
@@ -75,59 +75,56 @@ class ProgressIntegrationTest {
                 .expectStatus().isOk();
     }
 
-    private List<LicniRekordResponse> records(String token, String query) {
+    private List<PersonalRecordResponse> records(String token, String query) {
         return restTestClient.get().uri("/api/progress/records" + query)
                 .header("Authorization", "Bearer " + token)
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(new ParameterizedTypeReference<List<LicniRekordResponse>>() {})
+                .expectBody(new ParameterizedTypeReference<List<PersonalRecordResponse>>() {})
                 .returnResult()
                 .getResponseBody();
     }
 
-    private static LicniRekordResponse find(List<LicniRekordResponse> records, String vezba, TipRekorda tip) {
-        return records.stream().filter(r -> r.vezbaNaziv().equals(vezba) && r.tip() == tip).findFirst().orElseThrow();
+    private static PersonalRecordResponse find(List<PersonalRecordResponse> records, String exercise, RecordType type) {
+        return records.stream().filter(r -> r.exerciseName().equals(exercise) && r.type() == type).findFirst().orElseThrow();
     }
 
     @Test
     void personalRecords_shouldBeCalculatedOnFinishAndOnlyImprove() {
         String token = registerAndLogin("progress-records@example.com");
         Long bench = systemExerciseId("Bench Press", token);
-        Long pullUps = systemExerciseId("Zgibovi", token);
+        Long pullUps = systemExerciseId("Pull-ups", token);
 
-        // prvi trening: bench 8×60 i 6×70, zgibovi 12 bez tega
-        TreningResponse first = start(token, List.of(
-                new TreningVezbaRequest(bench, 3, 8, new BigDecimal("60")),
-                new TreningVezbaRequest(pullUps, 1, 12, null)));
+        WorkoutResponse first = start(token, List.of(
+                new WorkoutExerciseRequest(bench, 3, 8, new BigDecimal("60")),
+                new WorkoutExerciseRequest(pullUps, 1, 12, null)));
         completeSet(token, first, 0, 0, 8, "60");
         completeSet(token, first, 0, 1, 6, "70");
         completeSet(token, first, 1, 0, 12, null);
         finish(token, first.id());
 
-        List<LicniRekordResponse> fromFirst = records(token, "?treningId=" + first.id());
+        List<PersonalRecordResponse> fromFirst = records(token, "?workoutId=" + first.id());
         assertThat(fromFirst).hasSize(4);
-        assertThat(find(fromFirst, "Bench Press", TipRekorda.MAX_WEIGHT).kilaza()).isEqualByComparingTo("70");
-        assertThat(find(fromFirst, "Bench Press", TipRekorda.ESTIMATED_1RM).estimated1rm()).isEqualByComparingTo("84.00");
-        assertThat(find(fromFirst, "Zgibovi", TipRekorda.MAX_REPS).ponavljanja()).isEqualTo(12);
+        assertThat(find(fromFirst, "Bench Press", RecordType.MAX_WEIGHT).weight()).isEqualByComparingTo("70");
+        assertThat(find(fromFirst, "Bench Press", RecordType.ESTIMATED_1RM).estimated1rm()).isEqualByComparingTo("84.00");
+        assertThat(find(fromFirst, "Pull-ups", RecordType.MAX_REPS).reps()).isEqualTo(12);
 
-        // drugi trening: 10×65 obara 1RM i ponavljanja, ali ne i najveću kilažu
-        TreningResponse second = start(token, List.of(new TreningVezbaRequest(bench, 1, null, null)));
+        WorkoutResponse second = start(token, List.of(new WorkoutExerciseRequest(bench, 1, null, null)));
         completeSet(token, second, 0, 0, 10, "65");
         finish(token, second.id());
 
-        List<LicniRekordResponse> benchRecords = records(token, "?vezbaId=" + bench);
-        assertThat(find(benchRecords, "Bench Press", TipRekorda.MAX_WEIGHT).treningId()).isEqualTo(first.id());
-        assertThat(find(benchRecords, "Bench Press", TipRekorda.ESTIMATED_1RM).estimated1rm()).isEqualByComparingTo("86.67");
-        assertThat(find(benchRecords, "Bench Press", TipRekorda.MAX_REPS).ponavljanja()).isEqualTo(10);
+        List<PersonalRecordResponse> benchRecords = records(token, "?exerciseId=" + bench);
+        assertThat(find(benchRecords, "Bench Press", RecordType.MAX_WEIGHT).workoutId()).isEqualTo(first.id());
+        assertThat(find(benchRecords, "Bench Press", RecordType.ESTIMATED_1RM).estimated1rm()).isEqualByComparingTo("86.67");
+        assertThat(find(benchRecords, "Bench Press", RecordType.MAX_REPS).reps()).isEqualTo(10);
 
-        // otkazan trening ne pravi rekorde, ma koliko teška serija bila
-        TreningResponse cancelled = start(token, List.of(new TreningVezbaRequest(bench, 1, 1, new BigDecimal("200"))));
+        WorkoutResponse cancelled = start(token, List.of(new WorkoutExerciseRequest(bench, 1, 1, new BigDecimal("200"))));
         completeSet(token, cancelled, 0, 0, 1, "200");
         restTestClient.put().uri("/api/workouts/" + cancelled.id() + "/cancel")
                 .header("Authorization", "Bearer " + token)
                 .exchange()
                 .expectStatus().isOk();
-        assertThat(find(records(token, "?vezbaId=" + bench), "Bench Press", TipRekorda.MAX_WEIGHT).kilaza())
+        assertThat(find(records(token, "?exerciseId=" + bench), "Bench Press", RecordType.MAX_WEIGHT).weight())
                 .isEqualByComparingTo("70");
 
         ProgressSummaryResponse summary = restTestClient.get().uri("/api/progress/summary")
@@ -136,20 +133,20 @@ class ProgressIntegrationTest {
                 .expectBody(ProgressSummaryResponse.class)
                 .returnResult()
                 .getResponseBody();
-        assertThat(summary.ukupnoTreninga()).isEqualTo(2);
-        assertThat(summary.treninziOveNedelje()).isEqualTo(2);
-        assertThat(summary.brojRekorda()).isEqualTo(4);
-        assertThat(summary.ukupnaKilaza30Dana()).isEqualByComparingTo("1550"); // 8×60 + 6×70 + 10×65
+        assertThat(summary.totalWorkouts()).isEqualTo(2);
+        assertThat(summary.workoutsThisWeek()).isEqualTo(2);
+        assertThat(summary.recordCount()).isEqualTo(4);
+        assertThat(summary.volumeLast30Days()).isEqualByComparingTo("1550"); // 8×60 + 6×70 + 10×65
 
-        List<VezbaNapredakResponse> benchHistory = restTestClient.get().uri("/api/progress/exercises/" + bench)
+        List<ExerciseProgressResponse> benchHistory = restTestClient.get().uri("/api/progress/exercises/" + bench)
                 .header("Authorization", "Bearer " + token)
                 .exchange()
-                .expectBody(new ParameterizedTypeReference<List<VezbaNapredakResponse>>() {})
+                .expectBody(new ParameterizedTypeReference<List<ExerciseProgressResponse>>() {})
                 .returnResult()
                 .getResponseBody();
-        assertThat(benchHistory).extracting(VezbaNapredakResponse::treningId).containsExactly(first.id(), second.id());
-        assertThat(benchHistory.get(0).maxKilaza()).isEqualByComparingTo("70");
-        assertThat(benchHistory.get(1).najbolji1rm()).isEqualByComparingTo("86.67");
+        assertThat(benchHistory).extracting(ExerciseProgressResponse::workoutId).containsExactly(first.id(), second.id());
+        assertThat(benchHistory.get(0).maxWeight()).isEqualByComparingTo("70");
+        assertThat(benchHistory.get(1).best1rm()).isEqualByComparingTo("86.67");
     }
 
     @Test
@@ -162,13 +159,13 @@ class ProgressIntegrationTest {
         logWeight(token, today, "81.7").expectStatus().isOk(); // isti dan se menja, ne duplira
         logWeight(token, today.plusDays(1), "80").expectStatus().isBadRequest();
 
-        List<MasaLogResponse> history = restTestClient.get().uri("/api/progress/weight")
+        List<WeightLogResponse> history = restTestClient.get().uri("/api/progress/weight")
                 .header("Authorization", "Bearer " + token)
                 .exchange()
-                .expectBody(new ParameterizedTypeReference<List<MasaLogResponse>>() {})
+                .expectBody(new ParameterizedTypeReference<List<WeightLogResponse>>() {})
                 .returnResult()
                 .getResponseBody();
-        assertThat(history).extracting(MasaLogResponse::datum).containsExactly(today.minusDays(2), today);
+        assertThat(history).extracting(WeightLogResponse::date).containsExactly(today.minusDays(2), today);
         assertThat(currentWeight(token)).isEqualByComparingTo("81.7");
 
         restTestClient.delete().uri("/api/progress/weight/" + today)
@@ -183,7 +180,7 @@ class ProgressIntegrationTest {
                 .expectBody(BodyGoalResponse.class)
                 .returnResult()
                 .getResponseBody();
-        assertThat(emptyGoal.masa()).isNull();
+        assertThat(emptyGoal.weight()).isNull();
 
         BodyGoalResponse goal = restTestClient.put().uri("/api/progress/goal")
                 .header("Authorization", "Bearer " + token)
@@ -193,14 +190,14 @@ class ProgressIntegrationTest {
                 .expectBody(BodyGoalResponse.class)
                 .returnResult()
                 .getResponseBody();
-        assertThat(goal.masa()).isEqualByComparingTo("78");
-        assertThat(goal.procenatMasti()).isEqualByComparingTo("15");
+        assertThat(goal.weight()).isEqualByComparingTo("78");
+        assertThat(goal.bodyFatPercent()).isEqualByComparingTo("15");
     }
 
-    private RestTestClient.ResponseSpec logWeight(String token, LocalDate datum, String masa) {
-        return restTestClient.put().uri("/api/progress/weight/" + datum)
+    private RestTestClient.ResponseSpec logWeight(String token, LocalDate date, String weight) {
+        return restTestClient.put().uri("/api/progress/weight/" + date)
                 .header("Authorization", "Bearer " + token)
-                .body(new MasaRequest(new BigDecimal(masa)))
+                .body(new WeightRequest(new BigDecimal(weight)))
                 .exchange();
     }
 
@@ -211,6 +208,6 @@ class ProgressIntegrationTest {
                 .expectBody(UserResponse.class)
                 .returnResult()
                 .getResponseBody()
-                .masa();
+                .weight();
     }
 }

@@ -1,6 +1,6 @@
 package com.fitpulse.backend.security;
 
-import com.fitpulse.backend.user.Korisnik;
+import com.fitpulse.backend.user.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -9,32 +9,37 @@ import java.util.List;
 
 public class CustomUserDetails implements UserDetails {
 
-    private final Korisnik korisnik;
+    private final User user;
 
-    public CustomUserDetails(Korisnik korisnik) {
-        this.korisnik = korisnik;
+    public CustomUserDetails(User user) {
+        this.user = user;
     }
 
     public Long getId() {
-        return korisnik.getId();
+        return user.getId();
     }
 
-    public Korisnik getKorisnik() {
-        return korisnik;
+    public User getUser() {
+        return user;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return user.isActive();
     }
 
     @Override
     public List<GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + korisnik.getRole().name()));
+        return List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
     }
 
     @Override
     public String getPassword() {
-        return korisnik.getHashPassword();
+        return user.getPasswordHash();
     }
 
     @Override
     public String getUsername() {
-        return korisnik.getMail();
+        return user.getEmail();
     }
 }

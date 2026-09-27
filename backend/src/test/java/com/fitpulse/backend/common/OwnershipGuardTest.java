@@ -1,7 +1,7 @@
 package com.fitpulse.backend.common;
 
 import com.fitpulse.backend.security.CustomUserDetails;
-import com.fitpulse.backend.user.Korisnik;
+import com.fitpulse.backend.user.User;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,33 +12,34 @@ class OwnershipGuardTest {
 
     private final OwnershipGuard guard = new OwnershipGuard();
 
-    private final CustomUserDetails user = principal(Korisnik.register("Pera", "Perić", "pera@example.com", "hash", null), 1L);
-    private final CustomUserDetails admin = principal(Korisnik.createAdmin("Ana", "Anić", "ana@example.com", "hash"), 2L);
+    private final CustomUserDetails user = principal(User.register("Pera", "Perić", "pera@example.com", "hash", null), 1L);
+    private final CustomUserDetails admin = principal(User.createAdmin("Ana", "Anić", "ana@example.com", "hash"), 2L);
 
-    private static CustomUserDetails principal(Korisnik korisnik, Long id) {
-        korisnik.setId(id);
-        return new CustomUserDetails(korisnik);
+    private static CustomUserDetails principal(User user, Long id) {
+        user.setId(id);
+        return new CustomUserDetails(user);
     }
 
     @Test
-    void resolveOwnerIdForCreate_whenUserAsksForSystem_shouldStillReturnOwnId() {
-        assertThat(guard.resolveOwnerIdForCreate(true, user)).isEqualTo(1L);
+    void resolveOwnerIdForCreate_forUser_shouldReturnOwnId() {
+        assertThat(guard.resolveOwnerIdForCreate(user)).isEqualTo(1L);
     }
 
     @Test
-    void resolveOwnerIdForCreate_whenAdminAsksForSystem_shouldReturnNull() {
-        assertThat(guard.resolveOwnerIdForCreate(true, admin)).isNull();
+    void resolveOwnerIdForCreate_forAdmin_shouldCreateSystemResource() {
+        assertThat(guard.resolveOwnerIdForCreate(admin)).isNull();
     }
 
     @Test
     void canView_whenResourceIsSystem_shouldAllowEveryone() {
         assertThat(guard.canView(null, user)).isTrue();
+        assertThat(guard.canView(null, admin)).isTrue();
     }
 
     @Test
-    void canView_whenResourceBelongsToAnotherUser_shouldDenyUserButAllowAdmin() {
+    void canView_whenResourceBelongsToAnotherUser_shouldDenyUserAndAdmin() {
         assertThat(guard.canView(99L, user)).isFalse();
-        assertThat(guard.canView(99L, admin)).isTrue();
+        assertThat(guard.canView(99L, admin)).isFalse();
     }
 
     @Test
@@ -55,8 +56,11 @@ class OwnershipGuardTest {
     }
 
     @Test
-    void assertCanModify_whenAdminTouchesAnything_shouldPass() {
+    void assertCanModify_forAdmin_shouldAllowOnlySystemResources() {
         assertThatCode(() -> guard.assertCanModify(null, admin)).doesNotThrowAnyException();
-        assertThatCode(() -> guard.assertCanModify(99L, admin)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> guard.assertCanModify(99L, admin))
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getStatus().value())
+                .isEqualTo(403);
     }
 }

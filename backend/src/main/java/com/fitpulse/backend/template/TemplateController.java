@@ -3,8 +3,8 @@ package com.fitpulse.backend.template;
 import com.fitpulse.backend.security.CustomUserDetails;
 import com.fitpulse.backend.template.dto.TemplateRequest;
 import com.fitpulse.backend.template.dto.TemplateResponse;
-import com.fitpulse.backend.template.dto.TemplateVezbaRequest;
-import com.fitpulse.backend.template.dto.TemplateVezbaResponse;
+import com.fitpulse.backend.template.dto.TemplateExerciseRequest;
+import com.fitpulse.backend.template.dto.TemplateExerciseResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -53,22 +53,22 @@ public class TemplateController {
     }
 
     @GetMapping("/{id}/exercises")
-    public List<TemplateVezbaResponse> getExercises(@PathVariable Long id,
+    public List<TemplateExerciseResponse> getExercises(@PathVariable Long id,
                                                     @AuthenticationPrincipal CustomUserDetails principal) {
         return templateService.getExercises(id, principal);
     }
 
     @PostMapping("/{id}/exercises")
-    public ResponseEntity<TemplateVezbaResponse> addExercise(@PathVariable Long id,
-                                                             @Valid @RequestBody TemplateVezbaRequest request,
+    public ResponseEntity<TemplateExerciseResponse> addExercise(@PathVariable Long id,
+                                                             @Valid @RequestBody TemplateExerciseRequest request,
                                                              @AuthenticationPrincipal CustomUserDetails principal) {
         return ResponseEntity.status(HttpStatus.CREATED).body(templateService.addExercise(id, request, principal));
     }
 
     @PutMapping("/{id}/exercises/{itemId}")
-    public TemplateVezbaResponse updateExercise(@PathVariable Long id,
+    public TemplateExerciseResponse updateExercise(@PathVariable Long id,
                                                 @PathVariable Long itemId,
-                                                @Valid @RequestBody TemplateVezbaRequest request,
+                                                @Valid @RequestBody TemplateExerciseRequest request,
                                                 @AuthenticationPrincipal CustomUserDetails principal) {
         return templateService.updateExercise(id, itemId, request, principal);
     }

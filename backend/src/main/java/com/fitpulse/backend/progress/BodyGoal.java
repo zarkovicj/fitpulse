@@ -1,6 +1,6 @@
 package com.fitpulse.backend.progress;
 
-import com.fitpulse.backend.user.Korisnik;
+import com.fitpulse.backend.user.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -22,17 +22,17 @@ public class BodyGoal {
 
     @Setter(AccessLevel.NONE)
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_korisnika", nullable = false, unique = true)
-    private Korisnik korisnik;
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    private User user;
 
-    private BigDecimal masa;
+    private BigDecimal weight;
 
-    @Column(name = "procenat_masti")
-    private BigDecimal procenatMasti;
+    @Column(name = "body_fat_percent")
+    private BigDecimal bodyFatPercent;
 
-    public static BodyGoal create(Korisnik korisnik) {
+    public static BodyGoal create(User user) {
         BodyGoal goal = new BodyGoal();
-        goal.korisnik = korisnik;
+        goal.user = user;
         return goal;
     }
 }

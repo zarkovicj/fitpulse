@@ -9,10 +9,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserService {
 
-    private final KorisnikRepository korisnikRepository;
+    private final UserRepository userRepository;
 
-    public UserService(KorisnikRepository korisnikRepository) {
-        this.korisnikRepository = korisnikRepository;
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
@@ -22,18 +22,18 @@ public class UserService {
 
     @Transactional
     public UserResponse updateMe(Long userId, UpdateUserRequest request) {
-        Korisnik korisnik = findOrThrow(userId);
+        User user = findOrThrow(userId);
 
-        korisnik.setIme(request.ime());
-        korisnik.setPrezime(request.prezime());
-        korisnik.setDatumRodjenja(request.datumRodjenja());
-        korisnik.setVisina(request.visina());
+        user.setFirstName(request.firstName());
+        user.setLastName(request.lastName());
+        user.setBirthDate(request.birthDate());
+        user.setHeight(request.height());
 
-        return UserResponse.from(korisnik);
+        return UserResponse.from(user);
     }
 
-    private Korisnik findOrThrow(Long userId) {
-        return korisnikRepository.findById(userId)
+    private User findOrThrow(Long userId) {
+        return userRepository.findById(userId)
                 .orElseThrow(() -> ApiException.notFound("Korisnik nije pronađen"));
     }
 }

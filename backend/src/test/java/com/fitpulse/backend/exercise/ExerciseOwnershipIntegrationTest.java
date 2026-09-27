@@ -1,11 +1,11 @@
 package com.fitpulse.backend.exercise;
 
 import com.fitpulse.backend.TestcontainersConfig;
-import com.fitpulse.backend.exercise.dto.VezbaRequest;
-import com.fitpulse.backend.exercise.dto.VezbaResponse;
+import com.fitpulse.backend.exercise.dto.ExerciseRequest;
+import com.fitpulse.backend.exercise.dto.ExerciseResponse;
 import com.fitpulse.backend.user.AuthService;
-import com.fitpulse.backend.user.Korisnik;
-import com.fitpulse.backend.user.KorisnikRepository;
+import com.fitpulse.backend.user.User;
+import com.fitpulse.backend.user.UserRepository;
 import com.fitpulse.backend.user.dto.AuthResponse;
 import com.fitpulse.backend.user.dto.LoginRequest;
 import com.fitpulse.backend.user.dto.RegisterRequest;
@@ -36,22 +36,22 @@ class ExerciseOwnershipIntegrationTest {
     private AuthService authService;
 
     @Autowired
-    private KorisnikRepository korisnikRepository;
+    private UserRepository userRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    private String registerAndLogin(String mail) {
-        RegisterRequest request = new RegisterRequest("Test", "Korisnik", mail, "lozinka123", LocalDate.of(2000, 1, 1));
+    private String registerAndLogin(String email) {
+        RegisterRequest request = new RegisterRequest("Test", "User", email, "lozinka123", LocalDate.of(2000, 1, 1));
         return authService.register(request).token();
     }
 
-    private String createAdminAndLogin(String mail) {
-        Korisnik admin = Korisnik.createAdmin("Admin", "Adminovic", mail, passwordEncoder.encode("adminlozinka"));
-        korisnikRepository.save(admin);
+    private String createAdminAndLogin(String email) {
+        User admin = User.createAdmin("Admin", "Test", email, passwordEncoder.encode("adminlozinka"));
+        userRepository.save(admin);
 
         AuthResponse response = restTestClient.post().uri("/api/auth/login")
-                .body(new LoginRequest(mail, "adminlozinka"))
+                .body(new LoginRequest(email, "adminlozinka"))
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(AuthResponse.class)
@@ -61,18 +61,40 @@ class ExerciseOwnershipIntegrationTest {
     }
 
     @Test
+    void videoUrl_shouldBeSavedAndInvalidLinkRejected() {
+        String token = registerAndLogin("video@example.com");
+        String video = "https://www.youtube.com/watch?v=rT7DgCr-3pg";
+
+        ExerciseResponse created = restTestClient.post().uri("/api/exercises")
+                .header("Authorization", "Bearer " + token)
+                .body(new ExerciseRequest("Kosi potisak", MuscleGroup.CHEST, null, video))
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.CREATED)
+                .expectBody(ExerciseResponse.class)
+                .returnResult()
+                .getResponseBody();
+        assertThat(created.videoUrl()).isEqualTo(video);
+
+        restTestClient.put().uri("/api/exercises/" + created.id())
+                .header("Authorization", "Bearer " + token)
+                .body(new ExerciseRequest("Kosi potisak", MuscleGroup.CHEST, null, "javascript:alert(1)"))
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
     void ownershipRulesAreEnforced() {
         String user1Token = registerAndLogin("user1@example.com");
         String user2Token = registerAndLogin("user2@example.com");
         String adminToken = createAdminAndLogin("admin@example.com");
 
-        VezbaRequest userExerciseRequest = new VezbaRequest("Čučanj sa šipkom", MisicnaGrupa.NOGE, null, null, false);
-        VezbaResponse userExercise = restTestClient.post().uri("/api/exercises")
+        ExerciseRequest userExerciseRequest = new ExerciseRequest("Front Squat", MuscleGroup.LEGS, null, null);
+        ExerciseResponse userExercise = restTestClient.post().uri("/api/exercises")
                 .header("Authorization", "Bearer " + user1Token)
                 .body(userExerciseRequest)
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.CREATED)
-                .expectBody(VezbaResponse.class)
+                .expectBody(ExerciseResponse.class)
                 .returnResult()
                 .getResponseBody();
 
@@ -87,26 +109,26 @@ class ExerciseOwnershipIntegrationTest {
 
         restTestClient.put().uri("/api/exercises/" + exerciseId)
                 .header("Authorization", "Bearer " + user2Token)
-                .body(new VezbaRequest("Izmenjen naziv", MisicnaGrupa.NOGE, null, null, false))
+                .body(new ExerciseRequest("Izmenjen naziv", MuscleGroup.LEGS, null, null))
                 .exchange()
                 .expectStatus().isNotFound();
 
-        List<VezbaResponse> visibleToUser2 = restTestClient.get().uri("/api/exercises")
+        List<ExerciseResponse> visibleToUser2 = restTestClient.get().uri("/api/exercises")
                 .header("Authorization", "Bearer " + user2Token)
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(new ParameterizedTypeReference<List<VezbaResponse>>() {})
+                .expectBody(new ParameterizedTypeReference<List<ExerciseResponse>>() {})
                 .returnResult()
                 .getResponseBody();
-        assertThat(visibleToUser2).extracting(VezbaResponse::id).doesNotContain(exerciseId);
+        assertThat(visibleToUser2).extracting(ExerciseResponse::id).doesNotContain(exerciseId);
 
-        VezbaRequest systemExerciseRequest = new VezbaRequest("Mrtvo dizanje", MisicnaGrupa.LEDJA, null, null, true);
-        VezbaResponse systemExercise = restTestClient.post().uri("/api/exercises")
+        ExerciseRequest systemExerciseRequest = new ExerciseRequest("Romanian Deadlift", MuscleGroup.BACK, null, null);
+        ExerciseResponse systemExercise = restTestClient.post().uri("/api/exercises")
                 .header("Authorization", "Bearer " + adminToken)
                 .body(systemExerciseRequest)
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.CREATED)
-                .expectBody(VezbaResponse.class)
+                .expectBody(ExerciseResponse.class)
                 .returnResult()
                 .getResponseBody();
 
@@ -116,30 +138,44 @@ class ExerciseOwnershipIntegrationTest {
 
         restTestClient.put().uri("/api/exercises/" + systemExercise.id())
                 .header("Authorization", "Bearer " + user1Token)
-                .body(new VezbaRequest("Pokušaj izmene", MisicnaGrupa.LEDJA, null, null, false))
+                .body(new ExerciseRequest("Pokušaj izmene", MuscleGroup.BACK, null, null))
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.FORBIDDEN);
 
-        VezbaResponse adminUpdated = restTestClient.put().uri("/api/exercises/" + exerciseId)
+        ExerciseResponse adminUpdated = restTestClient.put().uri("/api/exercises/" + systemExercise.id())
                 .header("Authorization", "Bearer " + adminToken)
-                .body(new VezbaRequest("Admin izmenio", MisicnaGrupa.NOGE, null, null, false))
+                .body(new ExerciseRequest("Rumunsko mrtvo dizanje", MuscleGroup.BACK, null, null))
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(VezbaResponse.class)
+                .expectBody(ExerciseResponse.class)
                 .returnResult()
                 .getResponseBody();
+        assertThat(adminUpdated.name()).isEqualTo("Rumunsko mrtvo dizanje");
 
-        assertThat(adminUpdated).isNotNull();
-        assertThat(adminUpdated.naziv()).isEqualTo("Admin izmenio");
+        restTestClient.put().uri("/api/exercises/" + exerciseId)
+                .header("Authorization", "Bearer " + adminToken)
+                .body(new ExerciseRequest("Admin izmenio", MuscleGroup.LEGS, null, null))
+                .exchange()
+                .expectStatus().isNotFound();
 
-        List<VezbaResponse> visibleToAdmin = restTestClient.get().uri("/api/exercises")
+        List<ExerciseResponse> visibleToAdmin = restTestClient.get().uri("/api/exercises")
                 .header("Authorization", "Bearer " + adminToken)
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(new ParameterizedTypeReference<List<VezbaResponse>>() {})
+                .expectBody(new ParameterizedTypeReference<List<ExerciseResponse>>() {})
                 .returnResult()
                 .getResponseBody();
-        assertThat(visibleToAdmin).extracting(VezbaResponse::id).contains(exerciseId, systemExercise.id());
+        assertThat(visibleToAdmin).extracting(ExerciseResponse::id).contains(systemExercise.id()).doesNotContain(exerciseId);
+        assertThat(visibleToAdmin).allMatch(ExerciseResponse::system);
+
+        restTestClient.get().uri("/api/workouts")
+                .header("Authorization", "Bearer " + adminToken)
+                .exchange()
+                .expectStatus().isForbidden();
+        restTestClient.get().uri("/api/progress/summary")
+                .header("Authorization", "Bearer " + adminToken)
+                .exchange()
+                .expectStatus().isForbidden();
 
         restTestClient.get().uri("/api/exercises?muscleGroup=NEPOSTOJI")
                 .header("Authorization", "Bearer " + user1Token)

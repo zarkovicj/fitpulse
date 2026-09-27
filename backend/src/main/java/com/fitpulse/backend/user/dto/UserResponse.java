@@ -1,6 +1,6 @@
 package com.fitpulse.backend.user.dto;
 
-import com.fitpulse.backend.user.Korisnik;
+import com.fitpulse.backend.user.User;
 import com.fitpulse.backend.user.Role;
 
 import java.math.BigDecimal;
@@ -9,26 +9,26 @@ import java.time.LocalDate;
 
 public record UserResponse(
         Long id,
-        String ime,
-        String prezime,
-        String mail,
-        LocalDate datumRodjenja,
-        BigDecimal masa,
-        BigDecimal visina,
+        String firstName,
+        String lastName,
+        String email,
+        LocalDate birthDate,
+        BigDecimal weight,
+        BigDecimal height,
         Role role,
         Instant createdAt
 ) {
-    public static UserResponse from(Korisnik korisnik) {
+    public static UserResponse from(User user) {
         return new UserResponse(
-                korisnik.getId(),
-                korisnik.getIme(),
-                korisnik.getPrezime(),
-                korisnik.getMail(),
-                korisnik.getDatumRodjenja(),
-                korisnik.getMasa(),
-                korisnik.getVisina(),
-                korisnik.getRole(),
-                korisnik.getCreatedAt()
+                user.getId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail(),
+                user.getBirthDate(),
+                user.getWeight(),
+                user.getHeight(),
+                user.getRole(),
+                user.getCreatedAt()
         );
     }
 }

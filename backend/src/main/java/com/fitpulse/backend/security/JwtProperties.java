@@ -15,7 +15,7 @@ public record JwtProperties(
 ) {
     public JwtProperties {
         if (secret != null && secret.getBytes(StandardCharsets.UTF_8).length < 32) {
-            throw new IllegalArgumentException("app.jwt.secret mora imati bar 32 bajta (256 bita) za HS256");
+            throw new IllegalArgumentException("jwt secret mora imati bar 32 bajta (256 bita) za HS256");
         }
     }
 }

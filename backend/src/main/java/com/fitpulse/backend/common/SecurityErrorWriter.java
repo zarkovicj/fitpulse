@@ -10,7 +10,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.io.IOException;
 import java.time.Instant;
 
-// za greške iz security filter chain-a, koje GlobalExceptionHandler ne hvata
+// za greske iz security filter chaina, koje GlobalExceptionHandler ne hvata
 @Component
 public class SecurityErrorWriter {
 

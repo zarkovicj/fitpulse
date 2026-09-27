@@ -8,11 +8,13 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Optional;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -34,17 +36,28 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
 
-            if (jwtTokenProvider.isValid(token)) {
-                String mail = jwtTokenProvider.getMailFromToken(token);
-                UserDetails userDetails = userDetailsService.loadUserByUsername(mail);
-
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            }
+            // korisnik se cita iz baze pri svakom zahtevu, pa blokiran ili obrisan nalog odmah gubi pristup
+            // token vazi dok se lozinka ne promeni
+            jwtTokenProvider.tryParse(token).ifPresent(claims ->
+                    findUser(claims.getSubject())
+                            .filter(UserDetails::isEnabled)
+                            .filter(userDetails -> JwtTokenProvider.matches(claims, userDetails.getUser()))
+                            .ifPresent(userDetails -> {
+                                UsernamePasswordAuthenticationToken authentication =
+                                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                                SecurityContextHolder.getContext().setAuthentication(authentication);
+                            }));
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private Optional<CustomUserDetails> findUser(String email) {
+        try {
+            return Optional.of((CustomUserDetails) userDetailsService.loadUserByUsername(email));
+        } catch (UsernameNotFoundException e) {
+            return Optional.empty();
+        }
     }
 }

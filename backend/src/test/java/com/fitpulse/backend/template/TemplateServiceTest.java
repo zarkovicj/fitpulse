@@ -2,16 +2,16 @@ package com.fitpulse.backend.template;
 
 import com.fitpulse.backend.common.ApiException;
 import com.fitpulse.backend.common.OwnershipGuard;
-import com.fitpulse.backend.exercise.MisicnaGrupa;
-import com.fitpulse.backend.exercise.Vezba;
-import com.fitpulse.backend.exercise.VezbaRepository;
+import com.fitpulse.backend.exercise.MuscleGroup;
+import com.fitpulse.backend.exercise.Exercise;
+import com.fitpulse.backend.exercise.ExerciseRepository;
 import com.fitpulse.backend.security.CustomUserDetails;
 import com.fitpulse.backend.template.dto.TemplateRequest;
 import com.fitpulse.backend.template.dto.TemplateResponse;
-import com.fitpulse.backend.template.dto.TemplateVezbaRequest;
-import com.fitpulse.backend.template.dto.TemplateVezbaResponse;
-import com.fitpulse.backend.user.Korisnik;
-import com.fitpulse.backend.user.KorisnikRepository;
+import com.fitpulse.backend.template.dto.TemplateExerciseRequest;
+import com.fitpulse.backend.template.dto.TemplateExerciseResponse;
+import com.fitpulse.backend.user.User;
+import com.fitpulse.backend.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,77 +33,77 @@ import static org.mockito.Mockito.when;
 class TemplateServiceTest {
 
     @Mock private TemplateRepository templateRepository;
-    @Mock private VezbaRepository vezbaRepository;
-    @Mock private KorisnikRepository korisnikRepository;
+    @Mock private ExerciseRepository exerciseRepository;
+    @Mock private UserRepository userRepository;
 
     private TemplateService templateService;
     private CustomUserDetails owner;
     private Template template;
-    private Vezba bench;
-    private Vezba squat;
+    private Exercise bench;
+    private Exercise squat;
 
     @BeforeEach
     void setUp() {
-        templateService = new TemplateService(templateRepository, vezbaRepository, korisnikRepository, new OwnershipGuard());
+        templateService = new TemplateService(templateRepository, exerciseRepository, userRepository, new OwnershipGuard());
 
-        Korisnik korisnik = Korisnik.register("Pera", "Perić", "pera@example.com", "hash", null);
-        korisnik.setId(1L);
-        owner = new CustomUserDetails(korisnik);
+        User user = User.register("Pera", "Perić", "pera@example.com", "hash", null);
+        user.setId(1L);
+        owner = new CustomUserDetails(user);
 
-        bench = vezba(10L, "Bench Press", null);
-        squat = vezba(11L, "Čučanj", null);
+        bench = exercise(10L, "Bench Press", null);
+        squat = exercise(11L, "Squat", null);
 
-        template = Template.create("Push", "stari opis", korisnik);
+        template = Template.create("Push", "stari opis", user);
         template.setId(5L);
         template.addExercise(bench, 3, 8, new BigDecimal("60"));
     }
 
-    private static Vezba vezba(Long id, String naziv, Korisnik createdBy) {
-        Vezba vezba = Vezba.create(naziv, MisicnaGrupa.GRUDI, null, null, createdBy);
-        vezba.setId(id);
-        return vezba;
+    private static Exercise exercise(Long id, String name, User createdBy) {
+        Exercise exercise = Exercise.create(name, MuscleGroup.CHEST, null, createdBy);
+        exercise.setId(id);
+        return exercise;
     }
 
     @Test
     void update_withoutExercises_shouldChangeOnlyNameAndDescription() {
         when(templateRepository.findWithExercisesById(5L)).thenReturn(Optional.of(template));
 
-        TemplateResponse response = templateService.update(5L, new TemplateRequest("Push A", "novi opis", false, null), owner);
+        TemplateResponse response = templateService.update(5L, new TemplateRequest("Push A", "novi opis", null), owner);
 
-        assertThat(response.naziv()).isEqualTo("Push A");
-        assertThat(response.opis()).isEqualTo("novi opis");
-        assertThat(response.exercises()).extracting(TemplateVezbaResponse::vezbaNaziv).containsExactly("Bench Press");
+        assertThat(response.name()).isEqualTo("Push A");
+        assertThat(response.description()).isEqualTo("novi opis");
+        assertThat(response.exercises()).extracting(TemplateExerciseResponse::exerciseName).containsExactly("Bench Press");
         verify(templateRepository, never()).flush();
     }
 
     @Test
     void update_withExercises_shouldReplaceStructureInGivenOrder() {
         when(templateRepository.findWithExercisesById(5L)).thenReturn(Optional.of(template));
-        when(vezbaRepository.findById(11L)).thenReturn(Optional.of(squat));
-        when(vezbaRepository.findById(10L)).thenReturn(Optional.of(bench));
+        when(exerciseRepository.findById(11L)).thenReturn(Optional.of(squat));
+        when(exerciseRepository.findById(10L)).thenReturn(Optional.of(bench));
 
-        List<TemplateVezbaRequest> newStructure = List.of(
-                new TemplateVezbaRequest(11L, 5, 5, new BigDecimal("100")),
-                new TemplateVezbaRequest(10L, 4, 10, null));
+        List<TemplateExerciseRequest> newStructure = List.of(
+                new TemplateExerciseRequest(11L, 5, 5, new BigDecimal("100")),
+                new TemplateExerciseRequest(10L, 4, 10, null));
 
-        TemplateResponse response = templateService.update(5L, new TemplateRequest("Push", null, false, newStructure), owner);
+        TemplateResponse response = templateService.update(5L, new TemplateRequest("Push", null, newStructure), owner);
 
         assertThat(response.exercises())
-                .extracting(TemplateVezbaResponse::vezbaNaziv, TemplateVezbaResponse::redniBroj)
-                .containsExactly(tuple("Čučanj", 1), tuple("Bench Press", 2));
+                .extracting(TemplateExerciseResponse::exerciseName, TemplateExerciseResponse::position)
+                .containsExactly(tuple("Squat", 1), tuple("Bench Press", 2));
     }
 
     @Test
     void update_withExerciseOwnedByAnotherUser_shouldThrowBadRequest() {
-        Korisnik drugi = Korisnik.register("Mika", "Mikić", "mika@example.com", "hash", null);
+        User drugi = User.register("Mika", "Mikić", "mika@example.com", "hash", null);
         drugi.setId(2L);
-        Vezba tudja = vezba(20L, "Tuđa vežba", drugi);
+        Exercise tudja = exercise(20L, "Tuđa vežba", drugi);
 
         when(templateRepository.findWithExercisesById(5L)).thenReturn(Optional.of(template));
-        when(vezbaRepository.findById(20L)).thenReturn(Optional.of(tudja));
+        when(exerciseRepository.findById(20L)).thenReturn(Optional.of(tudja));
 
-        TemplateRequest request = new TemplateRequest("Push", null, false,
-                List.of(new TemplateVezbaRequest(20L, 3, 8, null)));
+        TemplateRequest request = new TemplateRequest("Push", null,
+                List.of(new TemplateExerciseRequest(20L, 3, 8, null)));
 
         assertThatThrownBy(() -> templateService.update(5L, request, owner))
                 .isInstanceOf(ApiException.class)

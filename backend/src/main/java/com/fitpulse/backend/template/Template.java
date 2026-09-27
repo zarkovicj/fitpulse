@@ -1,7 +1,7 @@
 package com.fitpulse.backend.template;
 
-import com.fitpulse.backend.exercise.Vezba;
-import com.fitpulse.backend.user.Korisnik;
+import com.fitpulse.backend.exercise.Exercise;
+import com.fitpulse.backend.user.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -24,24 +24,24 @@ public class Template {
     private Long id;
 
     @Column(nullable = false, length = 150)
-    private String naziv;
+    private String name;
 
     @Column(columnDefinition = "TEXT")
-    private String opis;
+    private String description;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
-    private Korisnik createdBy;
+    private User createdBy;
 
     @Setter(AccessLevel.NONE)
     @OneToMany(mappedBy = "template", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("redniBroj")
-    private List<TemplateVezba> exercises = new ArrayList<>();
+    @OrderBy("position")
+    private List<TemplateExercise> exercises = new ArrayList<>();
 
-    public static Template create(String naziv, String opis, Korisnik createdBy) {
+    public static Template create(String name, String description, User createdBy) {
         Template template = new Template();
-        template.naziv = naziv;
-        template.opis = opis;
+        template.name = name;
+        template.description = description;
         template.createdBy = createdBy;
         return template;
     }
@@ -50,14 +50,14 @@ public class Template {
         return createdBy != null ? createdBy.getId() : null;
     }
 
-    public TemplateVezba addExercise(Vezba vezba, int brojSerija, int brojPonavljanja, BigDecimal kilaza) {
-        int nextRedniBroj = exercises.stream().mapToInt(TemplateVezba::getRedniBroj).max().orElse(0) + 1;
-        TemplateVezba item = TemplateVezba.create(this, vezba, brojSerija, brojPonavljanja, kilaza, nextRedniBroj);
+    public TemplateExercise addExercise(Exercise exercise, int setCount, int reps, BigDecimal weight) {
+        int nextPosition = exercises.stream().mapToInt(TemplateExercise::getPosition).max().orElse(0) + 1;
+        TemplateExercise item = TemplateExercise.create(this, exercise, setCount, reps, weight, nextPosition);
         exercises.add(item);
         return item;
     }
 
-    public void removeExercise(TemplateVezba item) {
+    public void removeExercise(TemplateExercise item) {
         exercises.remove(item);
     }
 

@@ -2,14 +2,14 @@ package com.fitpulse.backend.template;
 
 import com.fitpulse.backend.common.ApiException;
 import com.fitpulse.backend.common.OwnershipGuard;
-import com.fitpulse.backend.exercise.Vezba;
-import com.fitpulse.backend.exercise.VezbaRepository;
+import com.fitpulse.backend.exercise.Exercise;
+import com.fitpulse.backend.exercise.ExerciseRepository;
 import com.fitpulse.backend.security.CustomUserDetails;
 import com.fitpulse.backend.template.dto.TemplateRequest;
 import com.fitpulse.backend.template.dto.TemplateResponse;
-import com.fitpulse.backend.template.dto.TemplateVezbaRequest;
-import com.fitpulse.backend.template.dto.TemplateVezbaResponse;
-import com.fitpulse.backend.user.KorisnikRepository;
+import com.fitpulse.backend.template.dto.TemplateExerciseRequest;
+import com.fitpulse.backend.template.dto.TemplateExerciseResponse;
+import com.fitpulse.backend.user.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,17 +19,17 @@ import java.util.List;
 public class TemplateService {
 
     private final TemplateRepository templateRepository;
-    private final VezbaRepository vezbaRepository;
-    private final KorisnikRepository korisnikRepository;
+    private final ExerciseRepository exerciseRepository;
+    private final UserRepository userRepository;
     private final OwnershipGuard ownershipGuard;
 
     public TemplateService(TemplateRepository templateRepository,
-                            VezbaRepository vezbaRepository,
-                            KorisnikRepository korisnikRepository,
+                            ExerciseRepository exerciseRepository,
+                            UserRepository userRepository,
                             OwnershipGuard ownershipGuard) {
         this.templateRepository = templateRepository;
-        this.vezbaRepository = vezbaRepository;
-        this.korisnikRepository = korisnikRepository;
+        this.exerciseRepository = exerciseRepository;
+        this.userRepository = userRepository;
         this.ownershipGuard = ownershipGuard;
     }
 
@@ -47,11 +47,11 @@ public class TemplateService {
 
     @Transactional
     public TemplateResponse create(TemplateRequest request, CustomUserDetails principal) {
-        Long ownerId = ownershipGuard.resolveOwnerIdForCreate(request.system(), principal);
+        Long ownerId = ownershipGuard.resolveOwnerIdForCreate(principal);
         Template template = Template.create(
-                request.naziv(),
-                request.opis(),
-                ownerId != null ? korisnikRepository.getReferenceById(ownerId) : null);
+                request.name(),
+                request.description(),
+                ownerId != null ? userRepository.getReferenceById(ownerId) : null);
 
         if (request.exercises() != null) {
             request.exercises().forEach(item -> addItem(template, item));
@@ -64,12 +64,12 @@ public class TemplateService {
     public TemplateResponse update(Long id, TemplateRequest request, CustomUserDetails principal) {
         Template template = findModifiableOrThrow(id, principal);
 
-        template.setNaziv(request.naziv());
-        template.setOpis(request.opis());
+        template.setName(request.name());
+        template.setDescription(request.description());
 
         if (request.exercises() != null) {
             template.clearExercises();
-            templateRepository.flush(); // stari redovi moraju da se obrišu pre inserta, zbog UNIQUE(id_template, redni_broj)
+            templateRepository.flush(); // stari redovi moraju da se obrisu pre inserta, zbog UNIQUE(id_template, redni_broj)
             request.exercises().forEach(item -> addItem(template, item));
             templateRepository.flush();
         }
@@ -84,32 +84,32 @@ public class TemplateService {
     }
 
     @Transactional(readOnly = true)
-    public List<TemplateVezbaResponse> getExercises(Long id, CustomUserDetails principal) {
+    public List<TemplateExerciseResponse> getExercises(Long id, CustomUserDetails principal) {
         return findVisibleOrThrow(id, principal).getExercises().stream()
-                .map(TemplateVezbaResponse::from)
+                .map(TemplateExerciseResponse::from)
                 .toList();
     }
 
     @Transactional
-    public TemplateVezbaResponse addExercise(Long id, TemplateVezbaRequest request, CustomUserDetails principal) {
+    public TemplateExerciseResponse addExercise(Long id, TemplateExerciseRequest request, CustomUserDetails principal) {
         Template template = findModifiableOrThrow(id, principal);
-        TemplateVezba item = addItem(template, request);
+        TemplateExercise item = addItem(template, request);
         templateRepository.flush(); // da novi red dobije id pre mapiranja u response
-        return TemplateVezbaResponse.from(item);
+        return TemplateExerciseResponse.from(item);
     }
 
     @Transactional
-    public TemplateVezbaResponse updateExercise(Long id, Long itemId, TemplateVezbaRequest request,
+    public TemplateExerciseResponse updateExercise(Long id, Long itemId, TemplateExerciseRequest request,
                                                 CustomUserDetails principal) {
         Template template = findModifiableOrThrow(id, principal);
-        TemplateVezba item = findItemOrThrow(template, itemId);
+        TemplateExercise item = findItemOrThrow(template, itemId);
 
-        item.setVezba(resolveVezba(request.vezbaId(), template.getOwnerId()));
-        item.setBrojSerija(request.brojSerija());
-        item.setBrojPonavljanja(request.brojPonavljanja());
-        item.setKilaza(request.kilaza());
+        item.setExercise(resolveExercise(request.exerciseId(), template.getOwnerId()));
+        item.setSetCount(request.setCount());
+        item.setReps(request.reps());
+        item.setWeight(request.weight());
 
-        return TemplateVezbaResponse.from(item);
+        return TemplateExerciseResponse.from(item);
     }
 
     @Transactional
@@ -118,16 +118,16 @@ public class TemplateService {
         template.removeExercise(findItemOrThrow(template, itemId));
     }
 
-    private TemplateVezba addItem(Template template, TemplateVezbaRequest item) {
-        Vezba vezba = resolveVezba(item.vezbaId(), template.getOwnerId());
-        return template.addExercise(vezba, item.brojSerija(), item.brojPonavljanja(), item.kilaza());
+    private TemplateExercise addItem(Template template, TemplateExerciseRequest item) {
+        Exercise exercise = resolveExercise(item.exerciseId(), template.getOwnerId());
+        return template.addExercise(exercise, item.setCount(), item.reps(), item.weight());
     }
 
-    // u template sme samo sistemska vežba ili vežba vlasnika template-a
-    private Vezba resolveVezba(Long vezbaId, Long templateOwnerId) {
-        return vezbaRepository.findById(vezbaId)
-                .filter(vezba -> vezba.getOwnerId() == null || vezba.getOwnerId().equals(templateOwnerId))
-                .orElseThrow(() -> ApiException.badRequest("Vežba " + vezbaId + " nije dostupna"));
+    // u template moze samo sistemska vezba ili vezba koju je napravio vlasnik template
+    private Exercise resolveExercise(Long exerciseId, Long templateOwnerId) {
+        return exerciseRepository.findById(exerciseId)
+                .filter(exercise -> exercise.getOwnerId() == null || exercise.getOwnerId().equals(templateOwnerId))
+                .orElseThrow(() -> ApiException.badRequest("Vežba " + exerciseId + " nije dostupna"));
     }
 
     private Template findVisibleOrThrow(Long id, CustomUserDetails principal) {
@@ -142,7 +142,7 @@ public class TemplateService {
         return template;
     }
 
-    private TemplateVezba findItemOrThrow(Template template, Long itemId) {
+    private TemplateExercise findItemOrThrow(Template template, Long itemId) {
         return template.getExercises().stream()
                 .filter(item -> item.getId().equals(itemId))
                 .findFirst()

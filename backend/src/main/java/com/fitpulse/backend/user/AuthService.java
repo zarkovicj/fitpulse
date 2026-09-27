@@ -14,16 +14,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuthService {
 
-    private final KorisnikRepository korisnikRepository;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
 
-    public AuthService(KorisnikRepository korisnikRepository,
+    public AuthService(UserRepository userRepository,
                         PasswordEncoder passwordEncoder,
                         AuthenticationManager authenticationManager,
                         JwtTokenProvider jwtTokenProvider) {
-        this.korisnikRepository = korisnikRepository;
+        this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtTokenProvider = jwtTokenProvider;
@@ -31,29 +31,29 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (korisnikRepository.existsByMail(request.mail())) {
+        if (userRepository.existsByEmail(User.normalizeEmail(request.email()))) {
             throw ApiException.conflict("Nalog sa ovim mail-om već postoji");
         }
 
-        Korisnik korisnik = Korisnik.register(
-                request.ime(), request.prezime(), request.mail(),
-                passwordEncoder.encode(request.password()), request.datumRodjenja());
+        User user = User.register(
+                request.firstName(), request.lastName(), request.email(),
+                passwordEncoder.encode(request.password()), request.birthDate());
 
-        korisnik = korisnikRepository.save(korisnik);
+        user = userRepository.save(user);
 
-        String token = jwtTokenProvider.generateToken(korisnik.getId(), korisnik.getMail(), korisnik.getRole().name());
-        return new AuthResponse(token, korisnik.getId(), korisnik.getMail(), korisnik.getRole().name());
+        String token = jwtTokenProvider.generateToken(user);
+        return new AuthResponse(token, user.getId(), user.getEmail(), user.getRole().name());
     }
 
     public AuthResponse login(LoginRequest request) {
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.mail(), request.password())
+                new UsernamePasswordAuthenticationToken(request.email(), request.password())
         );
 
-        Korisnik korisnik = korisnikRepository.findByMail(request.mail())
+        User user = userRepository.findByEmail(User.normalizeEmail(request.email()))
                 .orElseThrow(() -> ApiException.unauthorized("Pogrešan mail ili lozinka"));
 
-        String token = jwtTokenProvider.generateToken(korisnik.getId(), korisnik.getMail(), korisnik.getRole().name());
-        return new AuthResponse(token, korisnik.getId(), korisnik.getMail(), korisnik.getRole().name());
+        String token = jwtTokenProvider.generateToken(user);
+        return new AuthResponse(token, user.getId(), user.getEmail(), user.getRole().name());
     }
 }
