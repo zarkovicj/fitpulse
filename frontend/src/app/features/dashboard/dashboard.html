@@ -1,0 +1,135 @@
+<div class="max-w-4xl">
+  <header>
+    <p class="text-slate first-letter:uppercase">{{ today }}</p>
+    <h1 class="mt-1 font-display text-4xl font-bold">
+      Zdravo{{ currentUser.user() ? ', ' + currentUser.user()!.firstName : '' }}
+    </h1>
+  </header>
+
+  <!-- trening u toku ili poziv na start -->
+  @if (active.workout(); as current) {
+    <a [routerLink]="['/workouts', current.id]"
+       class="mt-6 flex items-center gap-4 rounded-lg bg-steel px-5 py-5 text-paper hover:bg-steel-soft">
+      <div class="min-w-0 flex-1">
+        <p class="flex items-center gap-2 text-sm font-medium text-plate-green-light">
+          <span class="size-2 rounded-full bg-plate-green-light" aria-hidden="true"></span>
+          Trening u toku
+        </p>
+        <p class="truncate font-display text-2xl font-semibold">{{ title(current) }}</p>
+      </div>
+      <p class="font-display text-4xl font-semibold tabular-nums">{{ activeElapsed() }}</p>
+      <span class="btn-primary pointer-events-none">Nastavi</span>
+    </a>
+  } @else {
+    <div class="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-lg bg-steel px-5 py-5 text-paper">
+      <div>
+        <p class="font-display text-2xl font-semibold">Spreman za trening?</p>
+        <p class="text-paper/70">Kreni iz šablona ili od praznog treninga.</p>
+      </div>
+      <button type="button" class="btn-primary" (click)="startOpen.set(true)">
+        <app-icon name="play" [size]="18" /> Započni trening
+      </button>
+    </div>
+  }
+
+  <!-- treninzi po nedeljama -->
+  <section class="mt-8" aria-labelledby="weeks-title">
+    <h2 id="weeks-title" class="font-display text-2xl font-semibold">Treninzi po nedeljama</h2>
+    <ol class="mt-3 grid grid-cols-8 gap-1 rounded-lg border border-line bg-paper px-2 pt-3 pb-2 sm:gap-2 sm:px-4">
+      @for (w of weeks(); track w.start) {
+        <li class="flex flex-col items-center" [attr.aria-label]="weekLabel(w)">
+          <span class="font-display text-lg font-semibold tabular-nums" [class]="w.count ? 'text-steel' : 'text-slate/60'">
+            {{ w.count }}
+          </span>
+          <!-- svaki trening je jedan teg, naslagani odozdo -->
+          <div class="mt-1 flex h-28 w-full flex-col-reverse items-center gap-[3px] border-b-2 border-line" aria-hidden="true">
+            @for (plate of w.plates; track $index) {
+              <span class="h-3 w-full max-w-9 rounded-[3px]" [class]="w.current ? 'bg-plate-blue' : 'bg-plate-blue/60'"></span>
+            }
+          </div>
+          <span class="mt-1.5 text-center text-[0.7rem] leading-tight whitespace-nowrap"
+                [class]="w.current ? 'font-semibold text-steel' : 'text-slate'">
+            {{ w.label }}
+          </span>
+        </li>
+      }
+    </ol>
+  </section>
+  <!-- brojke -->
+  @if (stats(); as s) {
+    <dl class="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-4">
+      <div class="bg-paper px-4 py-3">
+        <dt class="text-xs font-medium text-slate">Ukupno treninga</dt>
+        <dd class="mt-1 font-display text-2xl font-semibold">{{ s.totalWorkouts }}</dd>
+      </div>
+      <div class="bg-paper px-4 py-3">
+        <dt class="text-xs font-medium text-slate">Podignuto u 30 dana</dt>
+        <dd class="mt-1 font-display text-2xl font-semibold">{{ formatNumber(s.volumeLast30Days) }} kg</dd>
+      </div>
+      <div class="bg-paper px-4 py-3">
+        <dt class="text-xs font-medium text-slate">Lični rekordi</dt>
+        <dd class="mt-1 font-display text-2xl font-semibold">{{ s.recordCount }}</dd>
+      </div>
+      <div class="bg-paper px-4 py-3">
+        <dt class="text-xs font-medium text-slate">Masa / cilj</dt>
+        <dd class="mt-1 font-display text-2xl font-semibold">
+          <a routerLink="/progress/body" class="hover:text-plate-blue">
+            {{ s.currentWeight ? formatNumber(s.currentWeight) : '–' }}<span class="text-slate"> / {{ s.goalWeight ? formatNumber(s.goalWeight) : '–' }} kg</span>
+          </a>
+        </dd>
+      </div>
+    </dl>
+  }
+
+  <div class="mt-10 grid gap-8 md:grid-cols-2">
+    <!-- poslednji treninzi -->
+    <section aria-labelledby="recent-title">
+      <div class="flex items-baseline justify-between">
+        <h2 id="recent-title" class="font-display text-2xl font-semibold">Poslednji treninzi</h2>
+        <a routerLink="/workouts" class="text-sm font-semibold text-plate-blue hover:underline">Svi treninzi</a>
+      </div>
+      @if (recent().length > 0) {
+        <ul class="mt-3 divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper">
+          @for (w of recent(); track w.id) {
+            <li>
+              <a [routerLink]="['/workouts', w.id]" class="group block px-4 py-3 hover:bg-concrete/50">
+                <p class="text-sm text-slate first-letter:uppercase">{{ formatDay(w.date) }}</p>
+                <p class="flex justify-between gap-3">
+                  <span class="truncate font-semibold group-hover:text-plate-blue">{{ title(w) }}</span>
+                  <span class="shrink-0 text-sm text-slate">{{ duration(w) }}</span>
+                </p>
+              </a>
+            </li>
+          }
+        </ul>
+      } @else if (!history.isLoading()) {
+        <p class="mt-3 text-slate">Završeni treninzi će se pojaviti ovde.</p>
+      }
+    </section>
+
+    <!-- skorašnji rekordi -->
+    <section aria-labelledby="records-title">
+      <div class="flex items-baseline justify-between">
+        <h2 id="records-title" class="font-display text-2xl font-semibold">Skorašnji rekordi</h2>
+        <a routerLink="/progress" class="text-sm font-semibold text-plate-blue hover:underline">Napredak</a>
+      </div>
+      @if (latestRecords().length > 0) {
+        <ul class="mt-3 space-y-2">
+          @for (r of latestRecords(); track r.id) {
+            <li class="flex items-stretch gap-3 overflow-hidden rounded-lg border border-line bg-paper px-4">
+              <div class="min-w-0 flex-1 py-2.5">
+                <p class="truncate font-semibold"><button type="button" class="exercise-link" (click)="info.open(r.exerciseId)">{{ r.exerciseName }}</button></p>
+                <p class="text-sm text-slate">{{ recordLabels[r.type] }}</p>
+              </div>
+              <p class="self-center font-display text-xl font-semibold tabular-nums">{{ recordValue(r) }}</p>
+            </li>
+          }
+        </ul>
+      } @else if (!records.isLoading()) {
+        <p class="mt-3 text-slate">Rekordi se računaju kad završiš prvi trening.</p>
+      }
+    </section>
+  </div>
+</div>
+
+<app-start-workout-dialog [open]="startOpen()" (closed)="startOpen.set(false)" />

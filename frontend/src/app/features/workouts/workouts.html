@@ -1,0 +1,72 @@
+<div class="max-w-3xl">
+  <header class="flex flex-wrap items-end justify-between gap-4">
+    <h1 class="font-display text-4xl font-bold">Treninzi</h1>
+    @if (!active.workout()) {
+      <button type="button" class="btn-primary" (click)="startOpen.set(true)">
+        <app-icon name="play" [size]="18" /> Započni trening
+      </button>
+    }
+  </header>
+
+  @if (active.workout(); as current) {
+    <a [routerLink]="['/workouts', current.id]"
+       class="mt-6 flex items-center gap-4 rounded-lg bg-steel px-5 py-4 text-paper hover:bg-steel-soft">
+      <div class="min-w-0 flex-1">
+        <p class="flex items-center gap-2 text-sm font-medium text-plate-green-light">
+          <span class="size-2 rounded-full bg-plate-green-light" aria-hidden="true"></span>
+          Trening u toku
+        </p>
+        <p class="truncate font-display text-2xl font-semibold">{{ title(current) }}</p>
+      </div>
+      <p class="font-display text-3xl font-semibold tabular-nums">{{ activeElapsed() }}</p>
+      <span class="btn-primary pointer-events-none">Nastavi</span>
+    </a>
+  }
+
+  @if (error(); as message) {
+    <div class="alert-error mt-6 flex items-center justify-between gap-4" role="alert">
+      {{ message }}
+      <button type="button" class="font-semibold underline" (click)="loadMore()">Pokušaj ponovo</button>
+    </div>
+  }
+
+  @if (history().length > 0) {
+    <ul class="mt-6 divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper">
+      @for (w of history(); track w.id) {
+        <li>
+          <a [routerLink]="['/workouts', w.id]" class="group flex items-center gap-4 px-5 py-4 hover:bg-concrete/50"
+             [class.opacity-60]="w.status === 'CANCELLED'">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm text-slate first-letter:uppercase">{{ day(w.date) }}</p>
+              <p class="truncate font-display text-xl font-semibold group-hover:text-plate-blue">
+                {{ title(w) }}
+                @if (w.status === 'CANCELLED') {
+                  <span class="ml-1 font-sans text-sm font-semibold text-slate">otkazan</span>
+                }
+              </p>
+            </div>
+            <div class="shrink-0 text-right text-sm">
+              <p class="font-semibold tabular-nums">{{ volume(w) ?? exercises(w) }}</p>
+              <p class="text-slate tabular-nums">{{ duration(w) }}</p>
+            </div>
+          </a>
+        </li>
+      }
+    </ul>
+  } @else if (!loading() && !error()) {
+    <div class="mt-10 max-w-md">
+      <p class="font-display text-2xl font-semibold">Još nema završenih treninga.</p>
+      <p class="mt-2 text-slate">Pokreni prvi iz nekog šablona ili kao prazan trening, pa dodaj vežbe usput.</p>
+    </div>
+  }
+
+  @if (loading()) {
+    <p class="mt-6 text-slate">Učitavanje…</p>
+  } @else if (nextPage() !== null && history().length > 0) {
+    <div class="mt-6 flex justify-center">
+      <button type="button" class="btn-secondary" (click)="loadMore()">Prikaži starije</button>
+    </div>
+  }
+</div>
+
+<app-start-workout-dialog [open]="startOpen()" (closed)="startOpen.set(false)" />

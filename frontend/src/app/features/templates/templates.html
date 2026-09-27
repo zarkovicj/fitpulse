@@ -1,0 +1,62 @@
+<div class="max-w-5xl">
+  <header class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="font-display text-4xl font-bold">Šabloni</h1>
+      <p class="mt-1 max-w-prose text-slate">Unapred složeni treninzi. Iz šablona trening počinje sa već upisanim serijama.</p>
+    </div>
+    <a routerLink="/templates/new" class="btn-primary">
+      <app-icon name="plus" [size]="18" />
+      Novi šablon
+    </a>
+  </header>
+
+  @if (errorText(); as message) {
+    <div class="alert-error mt-8 flex items-center justify-between gap-4" role="alert">
+      {{ message }}
+      <button type="button" class="font-semibold underline" (click)="templates.reload()">Pokušaj ponovo</button>
+    </div>
+  } @else if (templates.isLoading() && !templates.hasValue()) {
+    <p class="mt-8 text-slate">Učitavanje…</p>
+  } @else {
+    <section class="mt-8" aria-labelledby="mine-title">
+      <h2 id="mine-title" class="font-display text-xl font-semibold">Moji šabloni</h2>
+      @if (mine().length > 0) {
+        <ng-container *ngTemplateOutlet="list; context: { $implicit: mine() }" />
+      } @else {
+        <div class="mt-2 rounded-lg border border-dashed border-line px-5 py-6">
+          <p class="font-semibold">Još nemaš svoj šablon.</p>
+          <p class="mt-1 text-slate">Složi ga od nule ili napravi kopiju nekog od gotovih šablona, pa ga prilagodi.</p>
+        </div>
+      }
+    </section>
+
+    @if (system().length > 0) {
+      <section class="mt-10" aria-labelledby="system-title">
+        <h2 id="system-title" class="font-display text-xl font-semibold">Gotovi šabloni</h2>
+        <ng-container *ngTemplateOutlet="list; context: { $implicit: system() }" />
+      </section>
+    }
+  }
+</div>
+
+<ng-template #list let-items>
+  <ul class="mt-2 divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper">
+    @for (template of items; track template.id) {
+      <li>
+        <a [routerLink]="['/templates', template.id]"
+           class="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-concrete/50">
+          <div class="min-w-0 flex-1">
+            <p class="font-display text-xl font-semibold group-hover:text-plate-blue">{{ template.name }}</p>
+            <p class="mt-0.5 truncate text-sm text-slate">
+              {{ groupsOf(template) || 'Bez vežbi' }}
+            </p>
+          </div>
+          <div class="shrink-0 text-right text-sm">
+            <p class="font-semibold">{{ exerciseCount(template) }}</p>
+            <p class="text-slate">{{ setCount(template) }}</p>
+          </div>
+        </a>
+      </li>
+    }
+  </ul>
+</ng-template>

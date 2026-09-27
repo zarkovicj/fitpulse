@@ -1,3 +1,101 @@
-/* You can add global styles to this file, and also import other style files */
-
 @import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Barlow', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Barlow Condensed', 'Barlow', ui-sans-serif, sans-serif;
+
+  /* beton i čelik kao osnova, boje takmičarskih tegova kao akcenti */
+  --color-concrete: #e4e8eb;
+  --color-paper: #f8f9fa;
+  --color-steel: #17202a;
+  --color-steel-soft: #243140;
+  --color-slate: #5a6672;
+  --color-line: #cbd2d8;
+  --color-plate-red: #c8102e;
+  --color-plate-blue: #1e4fd6;
+  --color-plate-yellow: #f2b705;
+  --color-plate-green: #17824a;
+  --color-plate-green-light: #5fd394;
+}
+
+@layer base {
+  body {
+    @apply bg-concrete font-sans text-steel antialiased;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-plate-blue;
+  }
+}
+
+@layer components {
+  .field-label {
+    @apply mb-1.5 block text-sm font-medium text-steel;
+  }
+
+  .field-input {
+    @apply block w-full rounded-md border border-line bg-paper px-3 py-2.5 text-base text-steel
+      placeholder:text-slate/70 focus:border-plate-blue focus:outline-none focus:ring-2 focus:ring-plate-blue/25;
+  }
+
+  .field-input[aria-invalid='true'] {
+    @apply border-plate-red focus:ring-plate-red/25;
+  }
+
+  .field-error {
+    @apply mt-1.5 text-sm text-plate-red;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-plate-blue px-4 py-2.5 font-semibold
+      text-white transition-colors hover:bg-plate-blue/90 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-plate-red px-4 py-2.5 font-semibold
+      text-white transition-colors hover:bg-plate-red/90 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-line bg-paper px-4 py-2.5
+      font-semibold text-steel transition-colors hover:border-slate/60 disabled:opacity-60;
+  }
+
+  .alert-error {
+    @apply rounded-md border border-plate-red/30 bg-plate-red/5 px-3 py-2.5 text-sm text-plate-red;
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-full border border-line bg-paper px-3 py-1.5 text-sm font-medium
+      text-steel transition-colors hover:border-slate/60;
+  }
+
+  .chip:has(input:checked),
+  .chip[aria-pressed='true'] {
+    @apply border-steel bg-steel text-paper;
+  }
+
+  .chip:has(input:focus-visible) {
+    @apply outline-2 outline-offset-2 outline-plate-blue;
+  }
+
+  /* naziv vežbe koji otvara njene detalje */
+  .exercise-link {
+    @apply cursor-pointer text-left underline decoration-transparent underline-offset-4 transition-colors
+      hover:text-plate-blue hover:decoration-plate-blue/40;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 font-medium text-steel
+      transition-colors hover:bg-steel/5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

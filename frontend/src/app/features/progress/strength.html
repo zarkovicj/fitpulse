@@ -1,0 +1,114 @@
+@if (errorText(); as message) {
+  <div class="alert-error flex items-center justify-between gap-4" role="alert">
+    {{ message }}
+    <button type="button" class="font-semibold underline" (click)="records.reload()">Pokušaj ponovo</button>
+  </div>
+} @else if (records.isLoading() && !records.hasValue()) {
+  <p class="text-slate">Učitavanje…</p>
+} @else if (byExercise().length === 0) {
+  <div class="max-w-md">
+    <p class="font-display text-2xl font-semibold">Još nema ličnih rekorda.</p>
+    <p class="mt-2 text-slate">
+      Rekordi se računaju kad završiš trening, iz serija koje si označio kao urađene.
+    </p>
+    <a routerLink="/workouts" class="btn-primary mt-4">Idi na treninge</a>
+  </div>
+} @else {
+  <!-- grafik za izabranu vežbu -->
+  <section class="rounded-lg border border-line bg-paper p-4 sm:p-5" aria-labelledby="chart-title">
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div class="min-w-0">
+        <label for="exercise-select" class="text-xs font-medium text-slate">Vežba</label>
+        <select id="exercise-select" class="field-input mt-1 py-2 font-semibold"
+                (change)="select(+$any($event.target).value)">
+          @for (e of byExercise(); track e.exerciseId) {
+            <option [value]="e.exerciseId" [selected]="e.exerciseId === selectedId()">{{ e.name }}</option>
+          }
+        </select>
+      </div>
+      <div class="flex flex-wrap gap-1.5" role="group" aria-label="Šta prikazuje grafik">
+        @for (m of metrics; track m.value) {
+          <button type="button" class="chip" [attr.aria-pressed]="metric() === m.value" (click)="metric.set(m.value)">
+            {{ m.label }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <h2 id="chart-title" class="sr-only">{{ metricLabel() }}: {{ selected()?.name }}</h2>
+
+    <div class="mt-4" [class.opacity-50]="history.isLoading()">
+      @if (chartPoints().length > 0) {
+        <app-line-chart
+          [points]="chartPoints()"
+          [formatValue]="formatValue()"
+          [label]="metricLabel() + ' za ' + (selected()?.name ?? '') + ' po treninzima'"
+          [valueLabel]="metricLabel()"
+        />
+        @if (chartPoints().length === 1) {
+          <p class="mt-1 text-sm text-slate">Linija napretka se pojavljuje kad ovu vežbu uradiš i nekog drugog dana.</p>
+        }
+      } @else if (!history.isLoading()) {
+        <p class="py-10 text-center text-slate">Za ovu vežbu još nema podataka za „{{ metricLabel() }}“.</p>
+      }
+    </div>
+  </section>
+
+  <!-- svi rekordi -->
+  <section class="mt-8" aria-labelledby="records-title">
+    <h2 id="records-title" class="font-display text-2xl font-semibold">Lični rekordi</h2>
+
+    <div class="mt-3 overflow-x-auto rounded-lg border border-line bg-paper">
+      <table class="w-full min-w-[34rem] text-left">
+        <thead class="border-b border-line text-xs text-slate">
+          <tr>
+            <th class="px-4 py-2.5 font-medium">Vežba</th>
+            <th class="px-4 py-2.5 text-right font-medium">Najveća kilaža</th>
+            <th class="px-4 py-2.5 text-right font-medium">Procenjeni 1RM</th>
+            <th class="px-4 py-2.5 text-right font-medium">Najviše ponavljanja</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          @for (e of byExercise(); track e.exerciseId) {
+            <tr class="cursor-pointer hover:bg-concrete/50" [class]="e.exerciseId === selectedId() ? 'bg-plate-blue/5' : ''"
+                (click)="select(e.exerciseId)">
+              <td class="px-4 py-3">
+                <button type="button" class="text-left font-semibold hover:text-plate-blue"
+                        [attr.aria-current]="e.exerciseId === selectedId() ? 'true' : null"
+                        (click)="$event.stopPropagation(); select(e.exerciseId)">
+                  {{ e.name }}
+                </button>
+                <p class="text-xs text-slate first-letter:uppercase">{{ dateOf(e.maxWeight ?? e.maxReps) }}</p>
+              </td>
+              <td class="px-4 py-3 text-right">
+                @if (e.maxWeight) {
+                  <span class="font-display text-xl font-semibold tabular-nums">{{ formatKg(e.maxWeight.weight) }}</span>
+                  <span class="block text-xs text-slate">× {{ e.maxWeight.reps }}</span>
+                } @else {
+                  <span class="text-slate">–</span>
+                }
+              </td>
+              <td class="px-4 py-3 text-right">
+                @if (e.e1rm) {
+                  <span class="font-display text-xl font-semibold tabular-nums">{{ formatKg(e.e1rm.estimated1rm) }}</span>
+                } @else {
+                  <span class="text-slate">–</span>
+                }
+              </td>
+              <td class="px-4 py-3 text-right">
+                @if (e.maxReps) {
+                  <span class="font-display text-xl font-semibold tabular-nums">{{ e.maxReps.reps }}</span>
+                  @if (e.maxReps.weight) {
+                    <span class="block text-xs text-slate">sa {{ formatKg(e.maxReps.weight) }}</span>
+                  }
+                } @else {
+                  <span class="text-slate">–</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}

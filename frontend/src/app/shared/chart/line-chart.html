@@ -1,0 +1,97 @@
+@if (width() > 0) {
+  <svg
+    class="block touch-pan-y select-none focus-visible:outline-2 focus-visible:outline-plate-blue"
+    [attr.width]="width()"
+    [attr.height]="height()"
+    role="img"
+    tabindex="0"
+    [attr.aria-label]="label() + '. Strelicama levo i desno prelaziš preko tačaka.'"
+    (pointermove)="onPointer($event)"
+    (pointerdown)="onPointer($event)"
+    (pointerleave)="active.set(null)"
+    (focus)="active.set(positioned().length - 1)"
+    (blur)="active.set(null)"
+    (keydown)="onKey($event)"
+  >
+    <!-- mreža i y osa -->
+    @for (tick of yTicks(); track tick.value) {
+      <line [attr.x1]="margin.left" [attr.x2]="width() - margin.right" [attr.y1]="tick.y" [attr.y2]="tick.y"
+            class="stroke-line" stroke-width="1" />
+      <text [attr.x]="margin.left - 8" [attr.y]="tick.y" dy="0.32em" text-anchor="end"
+            class="fill-slate text-xs tabular-nums">{{ formatValue()(tick.value) }}</text>
+    }
+
+    <!-- x osa -->
+    @for (tick of xTicks(); track $index) {
+      <text [attr.x]="tick.x" [attr.y]="height() - 8" [attr.text-anchor]="tick.anchor"
+            class="fill-slate text-xs">{{ tick.label }}</text>
+    }
+
+    <!-- referentna linija (cilj) -->
+    @if (referenceY() !== null) {
+      <line [attr.x1]="margin.left" [attr.x2]="width() - margin.right" [attr.y1]="referenceY()" [attr.y2]="referenceY()"
+            class="stroke-plate-green" stroke-width="1.5" />
+      <text [attr.x]="margin.left + 6" [attr.y]="referenceY()! - 6" text-anchor="start"
+            class="fill-slate text-xs font-medium">{{ reference()!.label }}</text>
+    }
+
+    <!-- serija -->
+    @if (area()) {
+      <path [attr.d]="area()" class="fill-plate-blue/10" />
+    }
+    <path [attr.d]="path()" fill="none" class="stroke-plate-blue" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+
+    @for (p of positioned(); track $index) {
+      <circle [attr.cx]="p.px" [attr.cy]="p.py" r="4" class="fill-plate-blue stroke-paper" stroke-width="2" />
+    }
+
+    <!-- vrednost na kraju linije, ostale su u tooltip-u i tabeli -->
+    @if (last(); as end) {
+      @if (tooltip() === null) {
+        <text [attr.x]="end.px + 10" [attr.y]="end.py" dy="0.32em" text-anchor="start"
+              class="fill-steel font-display text-base font-semibold tabular-nums">{{ formatValue()(end.y) }}</text>
+      }
+    }
+
+    <!-- crosshair -->
+    @if (tooltip(); as t) {
+      <line [attr.x1]="t.point.px" [attr.x2]="t.point.px" [attr.y1]="margin.top" [attr.y2]="height() - margin.bottom"
+            class="stroke-slate/50" stroke-width="1" />
+      <circle [attr.cx]="t.point.px" [attr.cy]="t.point.py" r="6" class="fill-plate-blue stroke-paper" stroke-width="2" />
+    }
+  </svg>
+
+  @if (tooltip(); as t) {
+    <div
+      class="pointer-events-none absolute top-2 z-10 rounded-md border border-line bg-paper px-3 py-2 shadow-lg"
+      [style.left.px]="t.left"
+      [style.transform]="t.flip ? 'translateX(-100%)' : null"
+      aria-hidden="true"
+    >
+      <p class="font-display text-xl leading-tight font-semibold tabular-nums">{{ t.value }}</p>
+      <p class="text-xs whitespace-nowrap text-slate">{{ t.date }}</p>
+    </div>
+  }
+} @else {
+  <div [style.height.px]="height()"></div>
+}
+
+<details class="mt-2 text-sm">
+  <summary class="cursor-pointer text-slate hover:text-steel">Prikaži podatke kao tabelu</summary>
+  <table class="mt-2 w-full max-w-sm text-left">
+    <thead>
+      <tr class="border-b border-line text-slate">
+        <th class="py-1.5 font-medium">Datum</th>
+        <th class="py-1.5 text-right font-medium">{{ valueLabel() }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of tableRows(); track $index) {
+        <tr class="border-b border-line/60">
+          <td class="py-1.5">{{ row.date }}</td>
+          <td class="py-1.5 text-right tabular-nums">{{ row.value }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</details>

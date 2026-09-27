@@ -1,0 +1,20 @@
+@reference '../../../styles.css';
+
+.nav-link {
+  @apply relative flex items-center gap-3 rounded-md px-3 py-2.5 font-medium text-paper/70
+    transition-colors hover:bg-paper/5 hover:text-paper;
+}
+
+/* aktivna stavka dobija "plavi teg" sa leve strane */
+.nav-link.nav-active {
+  @apply bg-paper/10 text-paper before:absolute before:inset-y-1.5 before:-left-3 before:w-1
+    before:rounded-r before:bg-plate-blue;
+}
+
+.tab-link {
+  @apply flex flex-col items-center gap-1 py-2 text-[0.7rem] font-medium text-slate;
+}
+
+.tab-link.tab-active {
+  @apply text-plate-blue;
+}

@@ -1,0 +1,87 @@
+<h2 id="exercise-form-title" class="font-display text-2xl font-bold">
+  {{ exercise() ? 'Izmena vežbe' : systemOnly() ? 'Nova gotova vežba' : 'Nova vežba' }}
+</h2>
+
+<form class="mt-5 space-y-5" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  @if (error(); as message) {
+    <p class="alert-error" role="alert">{{ message }}</p>
+  }
+
+  <div>
+    <label class="field-label" for="name">Naziv</label>
+    <input id="name" class="field-input" formControlName="name" placeholder="npr. Rumunsko mrtvo dizanje"
+           [attr.aria-invalid]="invalid('name')" />
+    @if (invalid('name')) {
+      <p class="field-error">Unesi naziv vežbe.</p>
+    }
+  </div>
+
+  <fieldset>
+    <legend class="field-label">Mišićna grupa</legend>
+    <div class="flex flex-wrap gap-2">
+      @for (group of groups; track group.value) {
+        <label class="chip cursor-pointer">
+          <input class="sr-only" type="radio" formControlName="muscleGroup" [value]="group.value" />
+          {{ group.label }}
+        </label>
+      }
+    </div>
+    @if (invalid('muscleGroup')) {
+      <p class="field-error">Izaberi mišićnu grupu.</p>
+    }
+  </fieldset>
+
+  <div>
+    <label class="field-label" for="description">Opis <span class="font-normal text-slate">(nije obavezno)</span></label>
+    <textarea id="description" class="field-input min-h-24" formControlName="description" rows="3"
+              placeholder="Kako se izvodi, na šta paziti"></textarea>
+  </div>
+
+  <div>
+    <p class="field-label">Slika <span class="font-normal text-slate">(nije obavezno)</span></p>
+    <div class="flex items-center gap-4">
+      <div class="grid size-24 shrink-0 place-items-center overflow-hidden rounded-md border border-line bg-concrete text-slate">
+        @if (imagePreview(); as src) {
+          <img [src]="src" alt="Izabrana slika vežbe" class="size-full object-cover" />
+        } @else {
+          <app-icon name="dumbbell" [size]="28" />
+        }
+      </div>
+      <div class="space-y-2">
+        <div class="flex flex-wrap gap-2">
+          <label class="btn-secondary cursor-pointer px-3 py-2 text-sm has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-plate-blue">
+            <input #fileInput type="file" class="sr-only" [accept]="acceptedTypes" (change)="pickImage(fileInput)" />
+            {{ preparingImage() ? 'Obrada…' : imagePreview() ? 'Promeni sliku' : 'Izaberi sliku' }}
+          </label>
+          @if (imagePreview()) {
+            <button type="button" class="btn-ghost px-3 py-2 text-sm text-plate-red hover:bg-plate-red/10" (click)="removeImage()">
+              Ukloni
+            </button>
+          }
+        </div>
+        <p class="text-sm text-slate">JPEG, PNG ili WebP. Slika se pre slanja smanjuje, a čuva se kad sačuvaš vežbu.</p>
+      </div>
+    </div>
+    @if (imageError(); as message) {
+      <p class="field-error" role="alert">{{ message }}</p>
+    }
+  </div>
+
+  <div>
+    <label class="field-label" for="video">Link do videa <span class="font-normal text-slate">(nije obavezno)</span></label>
+    <input id="video" class="field-input" type="url" formControlName="videoUrl" placeholder="https://www.youtube.com/watch?v=…"
+           aria-describedby="video-hint" [attr.aria-invalid]="invalid('videoUrl')" />
+    @if (invalid('videoUrl')) {
+      <p class="field-error">Link mora da počinje sa http:// ili https://.</p>
+    } @else {
+      <p id="video-hint" class="mt-1.5 text-sm text-slate">YouTube video se pušta u detaljima vežbe; ostali linkovi se otvaraju u novom tabu.</p>
+    }
+  </div>
+
+  <div class="flex justify-end gap-2 pt-1">
+    <button type="button" class="btn-ghost" (click)="cancelled.emit()">Odustani</button>
+    <button type="submit" class="btn-primary" [disabled]="submitting()">
+      {{ exercise() ? 'Sačuvaj izmene' : 'Dodaj vežbu' }}
+    </button>
+  </div>
+</form>

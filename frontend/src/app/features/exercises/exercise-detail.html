@@ -1,0 +1,118 @@
+<app-dialog [open]="info.exerciseId() !== null" [wide]="true" labelledBy="exercise-detail-title" (closed)="info.close()">
+  <div class="flex items-start gap-4">
+    @if (value()?.imageUrl; as src) {
+      <img [src]="src" alt="" class="size-14 shrink-0 rounded-md bg-concrete object-cover" />
+    }
+    <div class="min-w-0 flex-1">
+      <h2 id="exercise-detail-title" class="truncate font-display text-3xl leading-tight font-bold">
+        {{ value()?.name ?? 'Vežba' }}
+      </h2>
+      @if (value(); as e) {
+        <p class="text-slate">{{ groupLabel(e.muscleGroup) }}</p>
+      }
+    </div>
+    <button type="button" class="-mt-1 -mr-2 rounded-md p-2 text-slate hover:bg-steel/5" aria-label="Zatvori"
+            (click)="info.close()">
+      <app-icon name="close" />
+    </button>
+  </div>
+
+  <div class="mt-4 flex gap-1 border-b border-line" role="tablist" aria-label="Detalji vežbe">
+    <button type="button" role="tab" class="detail-tab" [attr.aria-selected]="tab() === 'about'" (click)="tab.set('about')">O vežbi</button>
+    <button type="button" role="tab" class="detail-tab" [attr.aria-selected]="tab() === 'history'" (click)="tab.set('history')">Istorija</button>
+    <button type="button" role="tab" class="detail-tab" [attr.aria-selected]="tab() === 'records'" (click)="tab.set('records')">Rekordi</button>
+  </div>
+
+  <!-- ista visina za sve kartice, da modal ne skače pri promeni; višak se skroluje -->
+  <div class="-mr-2 mt-5 h-[min(30rem,60dvh)] overflow-y-auto pr-2" role="tabpanel" tabindex="0">
+
+    @if (loadError(); as message) {
+      <p class="alert-error" role="alert">{{ message }}</p>
+    } @else if (!value()) {
+      <p class="text-slate">Učitavanje…</p>
+    } @else {
+      @switch (tab()) {
+        <!-- O vežbi -->
+        @case ('about') {
+          @let e = value()!;
+          @if (e.description) {
+            <p class="max-w-prose whitespace-pre-line">{{ e.description }}</p>
+          }
+
+          @if (embed(); as src) {
+            <div class="aspect-video overflow-hidden rounded-lg bg-steel" [class.mt-4]="e.description">
+              <iframe class="size-full" [src]="src" [title]="'Video: ' + e.name"
+                      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe>
+            </div>
+          } @else if (e.videoUrl) {
+            <a [href]="e.videoUrl" target="_blank" rel="noopener noreferrer" class="btn-secondary" [class.mt-4]="e.description">
+              <app-icon name="play" [size]="18" /> Pogledaj video
+            </a>
+          }
+
+          @if (!e.description && !e.videoUrl) {
+            <p class="text-slate">Za ovu vežbu još nema opisa ni videa.</p>
+          }
+        }
+
+        <!-- Istorija -->
+        @case ('history') {
+          @if (sessions().length === 0) {
+            <p class="text-slate">
+              {{ history.isLoading() ? 'Učitavanje…' : 'Ovu vežbu još nisi radio na završenom treningu.' }}
+            </p>
+          } @else {
+            @if (chartPoints().length > 1) {
+              <p class="text-sm font-medium text-slate">Procenjeni 1RM</p>
+              <app-line-chart class="mt-1" [points]="chartPoints()" [formatValue]="formatWeight" [height]="180"
+                              label="Procenjeni 1RM po danima treninga" valueLabel="1RM" />
+            }
+            <ul class="mt-4 divide-y divide-line overflow-hidden rounded-lg border border-line">
+              @for (s of sessions(); track s.workoutId) {
+                <li>
+                  <a [routerLink]="['/workouts', s.workoutId]" class="flex items-center gap-4 px-4 py-3 hover:bg-concrete/50">
+                    <span class="min-w-0 flex-1 first-letter:uppercase">{{ formatDay(s.date) }}</span>
+                    <span class="text-right text-sm">
+                      <span class="block font-display text-lg font-semibold tabular-nums">
+                        {{ formatKg(s.maxWeight) ?? s.maxReps + ' ponavljanja' }}
+                      </span>
+                      <span class="block text-slate tabular-nums">volumen {{ volume(s.volume) }}</span>
+                    </span>
+                  </a>
+                </li>
+              }
+            </ul>
+          }
+        }
+
+        <!-- Rekordi -->
+        @case ('records') {
+          @if (recordList().length === 0) {
+            <p class="text-slate">
+              {{ records.isLoading() ? 'Učitavanje…' : 'Rekordi se računaju kad završiš trening sa ovom vežbom.' }}
+            </p>
+          } @else {
+            <dl class="grid gap-3 sm:grid-cols-3">
+              @for (r of recordList(); track r.id) {
+                @let v = recordValue(r);
+                <div class="rounded-lg border border-plate-yellow bg-paper px-4 py-3">
+                  <dt class="text-sm text-slate">{{ recordLabels[r.type] }}</dt>
+                  <dd class="mt-1">
+                    <span class="block font-display text-3xl leading-none font-semibold tabular-nums">{{ v.main }}</span>
+                    <span class="mt-1 block text-sm text-slate tabular-nums">{{ v.detail }}</span>
+                    <span class="mt-2 block text-xs text-slate first-letter:uppercase">{{ recordDate(r) }}</span>
+                  </dd>
+                </div>
+              }
+            </dl>
+          }
+          <a [routerLink]="['/progress']" [queryParams]="{ exercise: value()!.id }"
+             class="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-plate-blue hover:underline">
+            <app-icon name="chart" [size]="16" /> Ceo napredak za ovu vežbu
+          </a>
+        }
+      }
+    }
+  </div>
+</app-dialog>

@@ -1,0 +1,68 @@
+<app-auth-layout>
+  <h1 class="font-display text-4xl font-bold">Novi nalog</h1>
+  <p class="mt-2 text-slate">Treba ti samo minut, a prvi trening možeš da počneš odmah.</p>
+
+  <form class="mt-8 space-y-5" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    @if (error(); as message) {
+      <p class="rounded-md border border-plate-red/30 bg-plate-red/5 px-3 py-2.5 text-sm text-plate-red" role="alert">
+        {{ message }}
+      </p>
+    }
+
+    <div class="grid gap-5 sm:grid-cols-2">
+      <div>
+        <label class="field-label" for="first-name">Ime</label>
+        <input id="first-name" class="field-input" formControlName="firstName" autocomplete="given-name" maxlength="100"
+               [attr.aria-invalid]="invalid('firstName')" />
+        @if (invalid('firstName')) {
+          <p class="field-error">Unesi ime.</p>
+        }
+      </div>
+      <div>
+        <label class="field-label" for="last-name">Prezime</label>
+        <input id="last-name" class="field-input" formControlName="lastName" autocomplete="family-name" maxlength="100"
+               [attr.aria-invalid]="invalid('lastName')" />
+        @if (invalid('lastName')) {
+          <p class="field-error">Unesi prezime.</p>
+        }
+      </div>
+    </div>
+
+    <div>
+      <label class="field-label" for="email">Mail</label>
+      <input id="email" name="username" class="field-input" type="email" formControlName="email" autocomplete="username"
+             [attr.aria-invalid]="invalid('email')" />
+      @if (invalid('email')) {
+        <p class="field-error">Unesi ispravan mail.</p>
+      }
+    </div>
+
+    <div>
+      <label class="field-label" for="password">Lozinka</label>
+      <input id="password" name="new-password" class="field-input" type="password" formControlName="password" maxlength="72"
+             autocomplete="new-password" [attr.aria-invalid]="invalid('password')" />
+      @if (invalid('password')) {
+        <p class="field-error">Lozinka mora imati bar 6 karaktera.</p>
+      } @else {
+        <p class="mt-1.5 text-sm text-slate">Najmanje 6 karaktera.</p>
+      }
+    </div>
+
+    <div>
+      <label class="field-label" for="birth-date">
+        Datum rođenja <span class="font-normal text-slate">(nije obavezno)</span>
+      </label>
+      <input id="birth-date" class="field-input" type="date" formControlName="birthDate"
+             [max]="today" />
+    </div>
+
+    <button class="btn-primary w-full" type="submit" [disabled]="submitting()">
+      {{ submitting() ? 'Pravim nalog…' : 'Napravi nalog' }}
+    </button>
+  </form>
+
+  <p class="mt-8 text-slate">
+    Već imaš nalog?
+    <a class="font-semibold text-plate-blue hover:underline" routerLink="/login">Prijavi se</a>
+  </p>
+</app-auth-layout>

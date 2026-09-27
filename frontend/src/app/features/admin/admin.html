@@ -1,0 +1,128 @@
+<div class="max-w-4xl">
+  <h1 class="font-display text-4xl font-bold">Administracija</h1>
+  <p class="mt-1 max-w-prose text-slate">Gotove vežbe i šabloni koje vide svi korisnici, i nalozi korisnika.</p>
+
+  <div class="mt-5 flex gap-1 border-b border-line" role="tablist" aria-label="Administracija">
+    <button type="button" role="tab" class="admin-tab" [attr.aria-selected]="activeTab() === 'exercises'"
+            (click)="selectTab('exercises')">
+      Gotove vežbe
+    </button>
+    <button type="button" role="tab" class="admin-tab" [attr.aria-selected]="activeTab() === 'templates'"
+            (click)="selectTab('templates')">
+      Gotovi šabloni
+    </button>
+    <button type="button" role="tab" class="admin-tab" [attr.aria-selected]="activeTab() === 'users'"
+            (click)="selectTab('users')">
+      Korisnici
+    </button>
+  </div>
+
+  @if (activeTab() === 'exercises') {
+    <section class="mt-6" role="tabpanel" aria-label="Gotove vežbe">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <label class="relative block w-full max-w-xs">
+          <span class="sr-only">Pretraga gotovih vežbi</span>
+          <app-icon name="search" [size]="18" class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate" />
+          <input type="search" class="field-input pl-10" placeholder="Pretraži"
+                 [value]="search()" (input)="search.set($any($event.target).value)" />
+        </label>
+        <button type="button" class="btn-primary" (click)="editing.set({ exercise: null })">
+          <app-icon name="plus" [size]="18" /> Nova gotova vežba
+        </button>
+      </div>
+
+      <div class="mt-4 overflow-x-auto rounded-lg border border-line bg-paper">
+        <table class="w-full min-w-[32rem] text-left">
+          <thead class="border-b border-line text-xs text-slate">
+            <tr>
+              <th class="px-4 py-2.5 font-medium">Naziv</th>
+              <th class="px-4 py-2.5 font-medium">Grupa</th>
+              <th class="px-4 py-2.5 font-medium">Opis</th>
+              <th class="px-4 py-2.5"><span class="sr-only">Akcije</span></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-line">
+            @for (e of systemExercises(); track e.id) {
+              <tr>
+                <td class="px-4 py-2.5 font-semibold">{{ e.name }}</td>
+                <td class="px-4 py-2.5 text-slate">{{ groupLabel(e.muscleGroup) }}</td>
+                <td class="max-w-64 truncate px-4 py-2.5 text-sm text-slate">{{ e.description }}</td>
+                <td class="px-2 py-1.5 text-right whitespace-nowrap">
+                  <button type="button" class="rounded-md p-2 text-slate hover:bg-steel/5 hover:text-steel"
+                          [attr.aria-label]="'Izmeni: ' + e.name" (click)="editing.set({ exercise: e })">
+                    <app-icon name="pencil" [size]="18" />
+                  </button>
+                  <button type="button" class="rounded-md p-2 text-slate hover:bg-plate-red/10 hover:text-plate-red"
+                          [attr.aria-label]="'Obriši: ' + e.name" (click)="askDelete({ kind: 'exercise', item: e })">
+                    <app-icon name="trash" [size]="18" />
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4" class="px-4 py-6 text-slate">
+                  {{ exercises.isLoading() ? 'Učitavanje…' : 'Nema gotovih vežbi za ovu pretragu.' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  } @else if (activeTab() === 'users') {
+    <section class="mt-6" role="tabpanel" aria-label="Korisnici">
+      <app-admin-users />
+    </section>
+  } @else {
+    <section class="mt-6" role="tabpanel" aria-label="Gotovi šabloni">
+      <div class="flex justify-end">
+        <a routerLink="/templates/new" class="btn-primary">
+          <app-icon name="plus" [size]="18" /> Novi gotov šablon
+        </a>
+      </div>
+
+      <ul class="mt-4 divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper">
+        @for (t of systemTemplates(); track t.id) {
+          <li class="flex items-center gap-4 px-4 py-3">
+            <div class="min-w-0 flex-1">
+              <a [routerLink]="['/templates', t.id]" class="font-semibold hover:text-plate-blue">{{ t.name }}</a>
+              <p class="text-sm text-slate">{{ exerciseCount(t) }}</p>
+            </div>
+            <a [routerLink]="['/templates', t.id, 'edit']" class="rounded-md p-2 text-slate hover:bg-steel/5 hover:text-steel"
+               [attr.aria-label]="'Izmeni: ' + t.name">
+              <app-icon name="pencil" [size]="18" />
+            </a>
+            <button type="button" class="rounded-md p-2 text-slate hover:bg-plate-red/10 hover:text-plate-red"
+                    [attr.aria-label]="'Obriši: ' + t.name" (click)="askDelete({ kind: 'template', item: t })">
+              <app-icon name="trash" [size]="18" />
+            </button>
+          </li>
+        } @empty {
+          <li class="px-4 py-6 text-slate">{{ templates.isLoading() ? 'Učitavanje…' : 'Još nema gotovih šablona.' }}</li>
+        }
+      </ul>
+    </section>
+  }
+</div>
+
+<app-dialog [open]="editing() !== null" labelledBy="exercise-form-title" (closed)="editing.set(null)">
+  @if (editing(); as state) {
+    <app-exercise-form
+      [exercise]="state.exercise"
+      [systemOnly]="true"
+      (saved)="onSaved()"
+      (cancelled)="editing.set(null)"
+    />
+  }
+</app-dialog>
+
+<app-confirm-dialog
+  [open]="deleting() !== null"
+  [title]="deleting()?.kind === 'template' ? 'Brisanje gotovog šablona' : 'Brisanje gotove vežbe'"
+  [message]="deleteMessage()"
+  confirmLabel="Obriši za sve"
+  [busy]="deleteBusy()"
+  [error]="deleteError()"
+  (confirmed)="confirmDelete()"
+  (cancelled)="deleting.set(null)"
+/>

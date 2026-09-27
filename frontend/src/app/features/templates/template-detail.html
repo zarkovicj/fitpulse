@@ -1,0 +1,82 @@
+<div class="max-w-3xl">
+  <a [routerLink]="ownership.isAdmin() ? '/admin' : '/templates'" [queryParams]="ownership.isAdmin() ? { tab: 'templates' } : null"
+     class="inline-flex items-center gap-1.5 text-sm font-medium text-slate hover:text-steel">
+    <app-icon name="arrow-left" [size]="16" />
+    {{ ownership.isAdmin() ? 'Administracija' : 'Šabloni' }}
+  </a>
+
+  @if (loadError(); as message) {
+    <p class="alert-error mt-6" role="alert">{{ message }}</p>
+  } @else if (value(); as t) {
+    <header class="mt-3">
+      <h1 class="font-display text-4xl font-bold">{{ t.name }}</h1>
+      @if (t.description) {
+        <p class="mt-2 max-w-prose text-slate">{{ t.description }}</p>
+      }
+      @if (t.system && !ownership.isAdmin()) {
+        <p class="mt-3 text-sm text-slate">Gotov šablon. Napravi kopiju ako želiš da menjaš vežbe ili kilaže.</p>
+      }
+    </header>
+
+    <div class="mt-6 flex flex-wrap gap-2">
+      <!-- trening i kopija su za korisnike; admin samo uređuje gotove šablone -->
+      @if (t.exercises.length > 0 && !ownership.isAdmin()) {
+        <button type="button" class="btn-primary" [disabled]="busy()" (click)="startWorkout()">
+          <app-icon name="play" [size]="18" /> Započni trening
+        </button>
+      }
+      @if (canModify()) {
+        <a [routerLink]="['/templates', t.id, 'edit']" class="btn-secondary">
+          <app-icon name="pencil" [size]="18" /> Izmeni
+        </a>
+      }
+      @if (!ownership.isAdmin()) {
+        <button type="button" class="btn-secondary" [disabled]="busy()" (click)="duplicate()">
+          <app-icon name="copy" [size]="18" /> Napravi kopiju
+        </button>
+      }
+      @if (canModify()) {
+        <button type="button" class="btn-ghost text-plate-red hover:bg-plate-red/10"
+                (click)="actionError.set(null); confirmingDelete.set(true)">
+          <app-icon name="trash" [size]="18" /> Obriši
+        </button>
+      }
+    </div>
+
+    @if (actionError(); as message) {
+      <p class="alert-error mt-4" role="alert">{{ message }}</p>
+    }
+
+    <ol class="mt-8 divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper">
+      @for (exercise of t.exercises; track exercise.id; let i = $index) {
+        <li class="flex items-center gap-4 px-5 py-4">
+          <span class="w-6 shrink-0 font-display text-lg font-semibold text-slate">{{ i + 1 }}</span>
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold"><button type="button" class="exercise-link" (click)="info.open(exercise.exerciseId)">{{ exercise.exerciseName }}</button></p>
+            <p class="text-sm text-slate">{{ groupLabel(exercise.muscleGroup) }}</p>
+          </div>
+          <div class="shrink-0 text-right">
+            <p class="font-display text-2xl leading-none font-semibold tabular-nums">
+              {{ exercise.setCount }} × {{ exercise.reps }}
+            </p>
+            <p class="mt-1 text-sm text-slate tabular-nums">{{ formatKg(exercise.weight) ?? 'bez tega' }}</p>
+          </div>
+        </li>
+      } @empty {
+        <li class="px-5 py-6 text-slate">Šablon još nema vežbe.</li>
+      }
+    </ol>
+
+    <app-confirm-dialog
+      [open]="confirmingDelete()"
+      title="Brisanje šablona"
+      [message]="'Šablon „' + t.name + '“ biće obrisan. Treninzi koje si već odradio po njemu ostaju u istoriji.'"
+      confirmLabel="Obriši šablon"
+      [busy]="busy()"
+      (confirmed)="confirmDelete()"
+      (cancelled)="confirmingDelete.set(false)"
+    />
+  } @else {
+    <p class="mt-6 text-slate">Učitavanje…</p>
+  }
+</div>

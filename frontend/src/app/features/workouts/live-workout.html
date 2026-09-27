@@ -1,0 +1,240 @@
+<div class="max-w-3xl">
+  <!-- zaglavlje ostaje vidljivo dok se skroluje kroz vežbe -->
+  <header class="sticky top-14 z-10 -mx-4 border-b border-line bg-concrete/95 px-4 pt-2 pb-4 backdrop-blur sm:-mx-6 sm:px-6 lg:top-0 lg:-mx-10 lg:px-10 lg:pt-4">
+    <div class="flex items-start justify-between gap-4">
+      <div class="min-w-0">
+        <p class="flex items-center gap-2 text-sm font-medium text-plate-green">
+          <span class="size-2 rounded-full bg-plate-green" aria-hidden="true"></span>
+          Trening u toku
+        </p>
+        <h1 class="truncate font-display text-2xl font-bold sm:text-3xl">{{ title() }}</h1>
+      </div>
+      <button type="button" class="btn-primary shrink-0" (click)="finishing.set(true)">
+        <app-icon name="check" [size]="18" /> Završi
+      </button>
+    </div>
+
+    <div class="mt-3 flex items-end gap-6 sm:gap-10">
+      <div>
+        <p class="text-xs font-medium text-slate">Trajanje</p>
+        <p class="font-display text-4xl leading-none font-semibold tabular-nums sm:text-5xl" role="timer">{{ elapsed() }}</p>
+      </div>
+      <div class="ml-auto text-right">
+        <p class="text-xs font-medium text-slate">Serije</p>
+        <p class="font-display text-2xl leading-none font-semibold tabular-nums">
+          {{ progress().done }}<span class="text-slate">/{{ progress().total }}</span>
+        </p>
+        <p class="mt-1 h-4 text-xs text-slate" aria-live="polite">{{ saving() ? 'Čuvanje…' : '' }}</p>
+      </div>
+    </div>
+
+    @if (canAskNotifications()) {
+      <button type="button" class="mt-3 flex items-center gap-2 text-sm font-medium text-plate-blue hover:underline"
+              (click)="askNotifications()">
+        <app-icon name="bell" [size]="16" /> Obavesti me kad odmor istekne i kad aplikacija nije otvorena
+      </button>
+    }
+  </header>
+
+  @if (error(); as message) {
+    <p class="alert-error mt-4" role="alert">{{ message }}</p>
+  }
+
+  <div class="mt-6 space-y-5">
+    @for (exercise of workout().exercises; track exercise.id) {
+      <section class="rounded-lg border border-line bg-paper" [attr.aria-labelledby]="'ex-' + exercise.id">
+        <div class="flex items-start gap-3 px-4 pt-4">
+          <div class="min-w-0 flex-1">
+            <h2 [id]="'ex-' + exercise.id" class="font-display text-xl font-semibold"><button type="button" class="exercise-link" (click)="info.open(exercise.exerciseId)">{{ exercise.exerciseName }}</button></h2>
+            <p class="text-sm text-slate">
+              {{ groupLabel(exercise.muscleGroup) }}, urađeno {{ doneCount(exercise) }} od {{ exercise.sets.length }}
+            </p>
+          </div>
+          <button type="button" class="-mt-1 -mr-2 rounded-md p-2 text-slate hover:bg-plate-red/10 hover:text-plate-red"
+                  [attr.aria-label]="'Ukloni vežbu ' + exercise.exerciseName" (click)="removingExercise.set(exercise)">
+            <app-icon name="trash" [size]="18" />
+          </button>
+        </div>
+
+        <div class="mt-3 grid grid-cols-[2rem_1fr_1fr_2.75rem_2rem] items-center gap-x-2 px-4 text-xs font-medium text-slate">
+          <span>Serija</span>
+          <span class="text-center">kg</span>
+          <span class="text-center">Ponavljanja</span>
+          <span class="sr-only">Urađeno</span>
+          <span></span>
+        </div>
+
+        <ol class="mt-1 px-2 pb-2">
+          @for (set of exercise.sets; track set.id) {
+            @let restSeconds = restOf(exercise, set);
+            <li>
+            <div class="grid grid-cols-[2rem_1fr_1fr_2.75rem_2rem] items-center gap-x-2 rounded-md px-2 py-1.5 transition-colors"
+                [class]="set.completed ? 'bg-plate-green/10' : ''">
+              <span class="font-display text-lg font-semibold text-slate">{{ set.position }}</span>
+              <input
+                #kg
+                class="field-input h-11 py-0 text-center font-display text-xl font-semibold tabular-nums"
+                type="text"
+                inputmode="decimal"
+                placeholder="–"
+                [value]="set.weight ?? ''"
+                (change)="changeKg(exercise, set, kg)"
+                [attr.aria-label]="'Kilaža, serija ' + set.position"
+              />
+              <input
+                #reps
+                class="field-input h-11 py-0 text-center font-display text-xl font-semibold tabular-nums"
+                type="text"
+                inputmode="numeric"
+                [value]="set.reps"
+                (change)="changeReps(exercise, set, reps)"
+                [attr.aria-label]="'Ponavljanja, serija ' + set.position"
+              />
+              <button
+                type="button"
+                class="grid size-11 place-items-center rounded-md border-2 transition-colors"
+                [class]="set.completed
+                  ? 'border-plate-green bg-plate-green text-white'
+                  : 'border-line bg-paper text-transparent hover:border-plate-green/60 hover:text-plate-green/40'"
+                [attr.aria-pressed]="set.completed"
+                [attr.aria-label]="'Serija ' + set.position + ' urađena'"
+                (click)="toggle(exercise, set)"
+              >
+                <app-icon name="check" [size]="22" />
+              </button>
+              <button type="button" class="grid size-8 place-items-center rounded-md text-slate/70 hover:bg-steel/5 hover:text-plate-red"
+                      [attr.aria-label]="'Obriši seriju ' + set.position" (click)="removeSet(exercise, set)">
+                <app-icon name="close" [size]="16" />
+              </button>
+            </div>
+
+            <!-- odmor posle ove serije: dok teče, odbrojavanje i kontrole su odmah otvoreni -->
+            @let running = rest.setId() === set.id && rest.active();
+            @if (running) {
+              <div class="mx-2 my-1 rounded-md px-3 py-2.5" [class]="rest.done() ? 'bg-plate-green/15' : 'bg-plate-blue/10'">
+                <div class="flex items-center gap-3">
+                  <app-icon name="timer" [size]="18" [class]="rest.done() ? 'text-plate-green' : 'text-plate-blue'" />
+                  <p class="font-display text-2xl leading-none font-semibold tabular-nums" role="timer"
+                     [class]="rest.done() ? 'text-plate-green' : 'text-steel'">
+                    {{ rest.done() ? 'Odmor je gotov' : restLeft() }}
+                  </p>
+                  <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-paper" aria-hidden="true">
+                    @if (!rest.done()) {
+                      <div class="h-full rounded-full bg-plate-blue transition-[width] duration-1000 ease-linear"
+                           [style.width.%]="rest.fraction() * 100"></div>
+                    }
+                  </div>
+                  <button type="button" class="text-sm font-semibold text-plate-blue hover:underline" (click)="rest.stop()">
+                    {{ rest.done() ? 'Zatvori' : 'Preskoči' }}
+                  </button>
+                </div>
+                @if (!rest.done()) {
+                  <div class="mt-2.5">
+                    <ng-container *ngTemplateOutlet="restControls; context: { exercise, set, seconds: restSeconds }" />
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="flex items-center gap-2 px-2 py-0.5">
+                <span class="h-px flex-1 bg-line" aria-hidden="true"></span>
+                <button type="button"
+                        class="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums hover:bg-steel/5 hover:text-steel"
+                        [class]="editingRest() === set.id ? 'bg-steel/5 text-steel' : 'text-slate'"
+                        [attr.aria-expanded]="editingRest() === set.id"
+                        [attr.aria-label]="'Odmor posle serije ' + set.position + ': ' + formatRest(restSeconds) + '. Promeni'"
+                        (click)="editingRest.set(editingRest() === set.id ? null : set.id)">
+                  <app-icon name="timer" [size]="14" /> odmor {{ formatRest(restSeconds) }}
+                </button>
+                <span class="h-px flex-1 bg-line" aria-hidden="true"></span>
+              </div>
+
+              @if (editingRest() === set.id) {
+                <div class="mx-2 mb-2 rounded-md bg-concrete/70 p-3">
+                  <ng-container *ngTemplateOutlet="restControls; context: { exercise, set, seconds: restSeconds }" />
+                  <p class="mt-2 text-xs text-slate">
+                    Važi i za sledeće serije sa istim odmorom. Sledeći put ova serija kreće sa istim odmorom.
+                  </p>
+                </div>
+              }
+            }
+            </li>
+          }
+        </ol>
+
+        <div class="border-t border-line px-4 py-2">
+          <button type="button" class="btn-ghost -ml-3 text-plate-blue" (click)="addSet(exercise)">
+            <app-icon name="plus" [size]="18" /> Dodaj seriju
+          </button>
+        </div>
+      </section>
+    }
+
+    <button type="button"
+            class="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-line px-5 py-5 font-semibold text-slate hover:border-plate-blue hover:text-plate-blue"
+            (click)="pickerOpen.set(true)">
+      <app-icon name="plus" /> Dodaj vežbu
+    </button>
+  </div>
+
+  <div class="mt-10 flex flex-col-reverse items-stretch gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
+    <button type="button" class="btn-ghost text-plate-red hover:bg-plate-red/10" (click)="cancelling.set(true)">
+      Otkaži trening
+    </button>
+    <button type="button" class="btn-primary sm:px-6" (click)="finishing.set(true)">
+      <app-icon name="check" [size]="18" /> Završi trening
+    </button>
+  </div>
+</div>
+
+<app-exercise-picker
+  [open]="pickerOpen()"
+  [allowed]="allowedExercise"
+  [addedIds]="addedIds()"
+  (picked)="addExercise($event)"
+  (closed)="pickerOpen.set(false)"
+/>
+
+<app-finish-dialog
+  [open]="finishing()"
+  [workout]="workout()"
+  [busy]="busy()"
+  (confirmed)="finish($event)"
+  (cancelled)="finishing.set(false)"
+/>
+
+<app-confirm-dialog
+  [open]="removingExercise() !== null"
+  title="Uklanjanje vežbe"
+  [message]="'Vežba „' + (removingExercise()?.exerciseName ?? '') + '“ i njene serije biće uklonjene iz ovog treninga.'"
+  confirmLabel="Ukloni vežbu"
+  (confirmed)="confirmRemoveExercise()"
+  (cancelled)="removingExercise.set(null)"
+/>
+
+<app-confirm-dialog
+  [open]="cancelling()"
+  title="Otkazivanje treninga"
+  message="Trening će ostati u istoriji kao otkazan i neće se računati u rekorde ni statistiku."
+  confirmLabel="Otkaži trening"
+  [busy]="busy()"
+  (confirmed)="cancel()"
+  (cancelled)="cancelling.set(false)"
+/>
+
+<!-- izbor trajanja odmora, isti za odbrojavanje koje teče i za izmenu unapred -->
+<ng-template #restControls let-exercise="exercise" let-set="set" let-seconds="seconds">
+  <div class="flex flex-wrap items-center gap-1.5">
+    @for (preset of restPresets; track preset) {
+      <button type="button" class="chip tabular-nums" [attr.aria-pressed]="seconds === preset"
+              (click)="setRest(exercise, set, preset)">
+        {{ formatRest(preset) }}
+      </button>
+    }
+    <span class="mx-1 h-5 w-px bg-line" aria-hidden="true"></span>
+    <button type="button" class="chip" (click)="setRest(exercise, set, seconds - 15)"
+            aria-label="Kraći odmor za 15 sekundi">−15 s</button>
+    <span class="w-12 text-center font-display text-lg font-semibold tabular-nums">{{ formatRest(seconds) }}</span>
+    <button type="button" class="chip" (click)="setRest(exercise, set, seconds + 15)"
+            aria-label="Duži odmor za 15 sekundi">+15 s</button>
+  </div>
+</ng-template>

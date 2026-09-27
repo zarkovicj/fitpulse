@@ -1,0 +1,138 @@
+<div class="max-w-5xl">
+  <header class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="font-display text-4xl font-bold">Vežbe</h1>
+      <p class="mt-1 text-slate">
+        @if (library.isLoading() && filtered().length === 0) {
+          Učitavanje…
+        } @else {
+          {{ countLabel(filtered().length) }}
+        }
+      </p>
+    </div>
+    <button type="button" class="btn-primary" (click)="editing.set({ exercise: null })">
+      <app-icon name="plus" [size]="18" />
+      Nova vežba
+    </button>
+  </header>
+
+  <!-- filteri -->
+  <div class="mt-6 space-y-3">
+    <label class="relative block max-w-md">
+      <span class="sr-only">Pretraga vežbi</span>
+      <app-icon name="search" [size]="18" class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate" />
+      <input
+        type="search"
+        class="field-input pl-10"
+        placeholder="Pretraži po nazivu ili opisu"
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+      />
+    </label>
+
+    <div class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Mišićna grupa">
+      <button type="button" class="chip shrink-0" [attr.aria-pressed]="group() === null" (click)="group.set(null)">
+        Sve
+      </button>
+      @for (g of groups; track g.value) {
+        <button type="button" class="chip shrink-0" [attr.aria-pressed]="group() === g.value" (click)="toggleGroup(g.value)">
+          {{ g.label }}
+        </button>
+      }
+      <span class="mx-1 w-px shrink-0 bg-line" aria-hidden="true"></span>
+      <button type="button" class="chip shrink-0" [attr.aria-pressed]="onlyMine()" (click)="onlyMine.set(!onlyMine())">
+        Samo moje
+      </button>
+    </div>
+  </div>
+
+  <!-- lista -->
+  @if (errorText(); as message) {
+    <div class="alert-error mt-8 flex items-center justify-between gap-4" role="alert">
+      {{ message }}
+      <button type="button" class="font-semibold underline" (click)="library.reload()">Pokušaj ponovo</button>
+    </div>
+  } @else if (!library.isLoading() && sections().length === 0) {
+    <div class="mt-10 max-w-md">
+      @if (search() || group() || onlyMine()) {
+        <p class="font-display text-2xl font-semibold">Nijedna vežba ne odgovara filterima.</p>
+        <p class="mt-2 text-slate">Proveri pretragu ili napravi vežbu koja ti nedostaje.</p>
+        <div class="mt-4 flex gap-2">
+          <button type="button" class="btn-secondary" (click)="clearFilters()">Očisti filtere</button>
+          <button type="button" class="btn-primary" (click)="editing.set({ exercise: null })">Nova vežba</button>
+        </div>
+      } @else {
+        <p class="font-display text-2xl font-semibold">Biblioteka je prazna.</p>
+        <p class="mt-2 text-slate">Dodaj prvu vežbu da bi mogao da je koristiš u šablonima i treninzima.</p>
+      }
+    </div>
+  } @else {
+    <div class="mt-8 space-y-8">
+      @for (section of sections(); track section.group) {
+        <section [attr.aria-labelledby]="'group-' + section.group">
+          <h2 [id]="'group-' + section.group" class="flex items-baseline gap-2 font-display text-xl font-semibold">
+            {{ section.label }}
+            <span class="text-base font-medium text-slate">{{ section.exercises.length }}</span>
+          </h2>
+
+          <ul class="mt-2 divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper">
+            @for (exercise of section.exercises; track exercise.id) {
+              <li class="flex items-center gap-4 px-4 py-3">
+                @if (exercise.imageUrl) {
+                  <img [src]="exercise.imageUrl" alt="" class="size-11 shrink-0 rounded-md bg-concrete object-cover" loading="lazy" />
+                }
+
+                <div class="min-w-0 flex-1">
+                  <p class="flex flex-wrap items-center gap-2 font-semibold">
+                    <button type="button" class="exercise-link" (click)="info.open(exercise.id)">{{ exercise.name }}</button>
+                    @if (ownership.isMine(exercise.createdBy)) {
+                      <span class="rounded bg-plate-blue/10 px-1.5 py-0.5 text-xs font-semibold text-plate-blue">Moja</span>
+                    }
+                  </p>
+                  @if (exercise.description) {
+                    <p class="truncate text-sm text-slate">{{ exercise.description }}</p>
+                  }
+                </div>
+
+                @if (ownership.canModify(exercise.createdBy)) {
+                  <div class="flex shrink-0 gap-1">
+                    <button type="button" class="rounded-md p-2 text-slate hover:bg-steel/5 hover:text-steel"
+                            [attr.aria-label]="'Izmeni: ' + exercise.name" (click)="editing.set({ exercise })">
+                      <app-icon name="pencil" [size]="18" />
+                    </button>
+                    <button type="button" class="rounded-md p-2 text-slate hover:bg-plate-red/10 hover:text-plate-red"
+                            [attr.aria-label]="'Obriši: ' + exercise.name" (click)="askDelete(exercise)">
+                      <app-icon name="trash" [size]="18" />
+                    </button>
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    </div>
+  }
+</div>
+
+<app-dialog [open]="editing() !== null" labelledBy="exercise-form-title" (closed)="editing.set(null)">
+  @if (editing(); as state) {
+    <app-exercise-form
+      [exercise]="state.exercise"
+      [defaultGroup]="group()"
+      (saved)="onSaved()"
+      (cancelled)="editing.set(null)"
+    />
+  }
+</app-dialog>
+
+<app-confirm-dialog
+  [open]="deleting() !== null"
+  title="Brisanje vežbe"
+  [message]="'Vežba „' + (deleting()?.name ?? '') + '“ biće trajno obrisana.'"
+  confirmLabel="Obriši vežbu"
+  [busy]="deleteBusy()"
+  [error]="deleteError()"
+  (confirmed)="confirmDelete()"
+  (cancelled)="deleting.set(null)"
+/>

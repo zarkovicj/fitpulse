@@ -1,0 +1,109 @@
+<div class="min-h-dvh lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
+  <!-- bočna traka (desktop) -->
+  <aside class="sticky top-0 hidden h-dvh flex-col bg-steel text-paper lg:flex">
+    <a routerLink="/" class="px-6 pt-7 pb-8 font-display text-2xl font-bold tracking-wide">FitPulse</a>
+
+    <nav class="flex-1 space-y-1 px-3" aria-label="Glavna navigacija">
+      @for (item of mainNav(); track item.path) {
+        <a
+          [routerLink]="item.path"
+          routerLinkActive="nav-active"
+          [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+          class="nav-link"
+        >
+          <app-icon [name]="item.icon" />
+          {{ item.label }}
+        </a>
+      }
+
+      <div class="my-4 border-t border-paper/10"></div>
+
+      @for (item of accountNav; track item.path) {
+        <a [routerLink]="item.path" routerLinkActive="nav-active" class="nav-link">
+          <app-icon [name]="item.icon" />
+          {{ item.label }}
+        </a>
+      }
+    </nav>
+
+    @if (showActive(); as current) {
+      <a [routerLink]="['/workouts', current.id]"
+         class="mx-3 mb-3 block rounded-lg bg-steel-soft px-4 py-3 hover:bg-paper/10">
+        <span class="flex items-center gap-2 text-xs font-medium text-plate-green-light">
+          <span class="size-1.5 rounded-full bg-plate-green-light" aria-hidden="true"></span>
+          Trening u toku
+        </span>
+        <span class="mt-0.5 flex items-baseline justify-between gap-2">
+          <span class="truncate text-sm font-medium">{{ activeTitle() }}</span>
+          <span class="font-display text-xl font-semibold tabular-nums">{{ indicatorTime() }}</span>
+        </span>
+      </a>
+    }
+
+    <div class="flex items-center gap-3 border-t border-paper/10 px-4 py-4">
+      <span class="grid size-9 place-items-center rounded-full bg-steel-soft font-display font-semibold">
+        {{ currentUser.initials() }}
+      </span>
+      <div class="min-w-0 flex-1">
+        <p class="truncate text-sm font-medium">{{ currentUser.user()?.firstName }} {{ currentUser.user()?.lastName }}</p>
+        <p class="truncate text-xs text-paper/50">{{ currentUser.user()?.email }}</p>
+      </div>
+      <button type="button" class="rounded-md p-2 text-paper/70 hover:bg-paper/10 hover:text-paper"
+              (click)="logout()" aria-label="Odjavi se" title="Odjavi se">
+        <app-icon name="logout" />
+      </button>
+    </div>
+  </aside>
+
+  <!-- gornja traka (mobilni) -->
+  <header class="sticky top-0 z-20 flex h-14 items-center justify-between bg-steel px-4 text-paper lg:hidden">
+    <a routerLink="/" class="font-display text-xl font-bold tracking-wide">FitPulse</a>
+    <div class="flex items-center gap-1">
+      @for (item of accountNav; track item.path) {
+        <a [routerLink]="item.path" class="rounded-md p-2 text-paper/80 hover:bg-paper/10"
+           [attr.aria-label]="item.label">
+          <app-icon [name]="item.icon" />
+        </a>
+      }
+      <button type="button" class="rounded-md p-2 text-paper/80 hover:bg-paper/10"
+              (click)="logout()" aria-label="Odjavi se">
+        <app-icon name="logout" />
+      </button>
+    </div>
+  </header>
+
+  <main class="min-w-0 px-4 pt-6 sm:px-6 lg:px-10 lg:pt-10 lg:pb-12"
+        [class]="showActive() ? 'pb-40' : 'pb-28'">
+    <router-outlet />
+  </main>
+
+  @if (showActive(); as current) {
+    <a [routerLink]="['/workouts', current.id]"
+       class="fixed inset-x-0 bottom-16 z-20 flex items-center gap-3 bg-steel px-4 py-2.5 text-paper lg:hidden">
+      <span class="size-2 shrink-0 rounded-full bg-plate-green-light" aria-hidden="true"></span>
+      <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ activeTitle() }}</span>
+      <span class="font-display text-lg font-semibold tabular-nums">{{ indicatorTime() }}</span>
+      <span class="text-sm font-semibold text-plate-green-light">Nastavi</span>
+    </a>
+  }
+
+  <!-- donja navigacija (mobilni) -->
+  <nav class="fixed inset-x-0 bottom-0 z-20 grid h-16 border-t border-line bg-paper lg:hidden"
+       [style.grid-template-columns]="'repeat(' + mainNav().length + ', minmax(0, 1fr))'"
+       aria-label="Glavna navigacija">
+    @for (item of mainNav(); track item.path) {
+      <a
+        [routerLink]="item.path"
+        routerLinkActive="tab-active"
+        [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+        class="tab-link"
+      >
+        <app-icon [name]="item.icon" [size]="22" />
+        {{ item.label }}
+      </a>
+    }
+  </nav>
+
+  <!-- detalji vežbe, otvaraju se sa bilo kog ekrana -->
+  <app-exercise-detail />
+</div>

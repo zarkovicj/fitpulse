@@ -1,0 +1,57 @@
+<app-dialog [open]="open()" [wide]="true" labelledBy="picker-title" (closed)="closed.emit()">
+  <div class="flex items-start justify-between gap-4">
+    <h2 id="picker-title" class="font-display text-2xl font-bold">Dodaj vežbe</h2>
+    <button type="button" class="-mt-1 -mr-2 rounded-md p-2 text-slate hover:bg-steel/5" aria-label="Zatvori"
+            (click)="closed.emit()">
+      <app-icon name="close" />
+    </button>
+  </div>
+
+  <label class="relative mt-4 block">
+    <span class="sr-only">Pretraga vežbi</span>
+    <app-icon name="search" [size]="18" class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate" />
+    <input type="search" class="field-input pl-10" placeholder="Pretraži vežbe"
+           [value]="search()" (input)="search.set($any($event.target).value)" />
+  </label>
+
+  <div class="mt-3 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Mišićna grupa">
+    <button type="button" class="chip shrink-0" [attr.aria-pressed]="group() === null" (click)="group.set(null)">Sve</button>
+    @for (g of groups; track g.value) {
+      <button type="button" class="chip shrink-0" [attr.aria-pressed]="group() === g.value"
+              (click)="group.set(group() === g.value ? null : g.value)">
+        {{ g.label }}
+      </button>
+    }
+  </div>
+
+  <ul class="mt-4 h-[min(24rem,50dvh)] divide-y divide-line overflow-y-auto rounded-lg border border-line">
+    @if (library.isLoading()) {
+      <li class="px-4 py-6 text-slate">Učitavanje…</li>
+    } @else {
+      @for (exercise of results(); track exercise.id) {
+        <li>
+          <button type="button" class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-concrete/60"
+                  (click)="picked.emit(exercise)">
+            <span class="min-w-0 flex-1">
+              <span class="block font-semibold">{{ exercise.name }}</span>
+              <span class="block text-sm text-slate">{{ groupLabel(exercise.muscleGroup) }}</span>
+            </span>
+            @if (isAdded(exercise)) {
+              <span class="flex items-center gap-1 text-sm font-semibold text-plate-green">
+                <app-icon name="check" [size]="18" /> Dodato
+              </span>
+            } @else {
+              <app-icon name="plus" class="text-plate-blue" />
+            }
+          </button>
+        </li>
+      } @empty {
+        <li class="px-4 py-6 text-slate">Nijedna vežba ne odgovara pretrazi.</li>
+      }
+    }
+  </ul>
+
+  <div class="mt-5 flex justify-end">
+    <button type="button" class="btn-primary" (click)="closed.emit()">Gotovo</button>
+  </div>
+</app-dialog>
