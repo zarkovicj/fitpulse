@@ -1,3 +1,5 @@
+# Cela aplikacija jednom komandom: docker compose up --build
+# Redosled: baza → backend (kad je baza spremna) → frontend (kad je backend spreman).
 services:
   db:
     image: postgres:16-alpine
@@ -5,6 +7,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    # 5433 na računaru, za IntelliJ/pgAdmin i backend pokrenut van Docker-a
     ports:
       - "5433:5432"
     volumes:
@@ -14,6 +17,45 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # hvata sve mailove u razvoju (npr. link za zaboravljenu lozinku): http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.21
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      ADMIN_MAIL: ${ADMIN_MAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-FitPulse <no-reply@fitpulse.local>}
+      # link u mailu za novu lozinku vodi na frontend
+      FRONTEND_URL: http://localhost:${APP_PORT:-8081}
+    # nije izložen na računaru: browser do njega stiže samo preko nginx-a (/api)
+    expose:
+      - "8080"
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8081}:80"
 
 volumes:
   pgdata:
